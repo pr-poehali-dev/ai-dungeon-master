@@ -81,12 +81,17 @@ function ChatTab({ state, setState }: { state: GameState; setState: (s: GameStat
         }),
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Ошибка сервера");
+      const raw = await res.json();
+      // Платформа может обернуть ответ в { body: ... }
+      const data = raw?.body ?? raw;
+      const parsed = typeof data === "string" ? JSON.parse(data) : data;
+      if (!res.ok) throw new Error(parsed.error || "Ошибка сервера");
+      if (parsed.error) throw new Error(parsed.error);
+      if (!parsed.reply) throw new Error("Пустой ответ от мастера");
 
       const masterMsg: ChatMessage = {
         role: "master",
-        text: data.reply,
+        text: parsed.reply,
         time: new Date().toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" }),
       };
       setState({ ...newState, chatHistory: [...newHistory, masterMsg] });
