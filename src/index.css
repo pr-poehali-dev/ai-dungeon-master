@@ -1012,6 +1012,79 @@
   border: 1px solid rgba(212, 160, 23, 0.1);
 }
 
+/* ─── ADVANTAGE / DISADVANTAGE ──────────────── */
+.adv-switcher {
+  display: flex;
+  border: 1px solid var(--border-gold);
+  border-radius: 4px;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+
+.adv-switcher-adv {
+  border-color: rgba(46, 204, 113, 0.5);
+}
+.adv-switcher-dis {
+  border-color: rgba(192, 57, 43, 0.5);
+}
+
+.adv-btn {
+  flex: 1;
+  font-family: "Cinzel", serif;
+  font-size: 0.6rem;
+  letter-spacing: 0.04em;
+  padding: 7px 4px;
+  border: none;
+  border-right: 1px solid var(--border-gold);
+  cursor: pointer;
+  transition: all 0.15s;
+  background: rgba(0, 0, 0, 0.3);
+  color: var(--parchment-muted);
+}
+
+.adv-btn:last-child {
+  border-right: none;
+}
+.adv-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--parchment);
+}
+
+.adv-btn-advantage.adv-btn-active {
+  background: rgba(46, 204, 113, 0.2) !important;
+  color: var(--emerald) !important;
+}
+.adv-btn-normal.adv-btn-active {
+  background: rgba(212, 160, 23, 0.15) !important;
+  color: var(--gold) !important;
+}
+.adv-btn-disadvantage.adv-btn-active {
+  background: rgba(192, 57, 43, 0.2) !important;
+  color: var(--crimson) !important;
+}
+
+.roll-adv {
+  border-left: 3px solid var(--emerald) !important;
+}
+.roll-dis {
+  border-left: 3px solid var(--crimson) !important;
+}
+
+.dice-btn-rolling {
+  animation: dice-spin 0.25s ease-out;
+}
+@keyframes dice-spin {
+  0% {
+    transform: scale(1) rotate(0deg);
+  }
+  50% {
+    transform: scale(1.2) rotate(15deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+}
+
 /* ─── INVENTORY EXTRAS ───────────────────────── */
 .inventory-item-equipped {
   border-color: rgba(212, 160, 23, 0.4) !important;

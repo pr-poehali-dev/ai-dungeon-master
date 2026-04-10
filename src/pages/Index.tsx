@@ -387,46 +387,122 @@ function InventoryTab({ state, setState }: { state: GameState; setState: (s: Gam
 }
 
 // ─── Dice Tab ──────────────────────────────────────────────────────
+type AdvMode = "advantage" | "normal" | "disadvantage";
+
+interface ExtDiceRoll extends DiceRoll {
+  rolls2?: number[];
+  advMode?: AdvMode;
+  formula?: string;
+}
+
 function DiceTab() {
-  const [rolls, setRolls] = useState<DiceRoll[]>([]);
+  const [rolls, setRolls] = useState<ExtDiceRoll[]>([]);
   const [count, setCount] = useState(1);
   const [modifier, setModifier] = useState(0);
   const [rolling, setRolling] = useState(false);
+  const [advMode, setAdvMode] = useState<AdvMode>("normal");
+  const [activeSide, setActiveSide] = useState<number | null>(null);
 
   const diceSymbols: Record<number, string> = { 4: "◆", 6: "⬡", 8: "◈", 10: "◉", 12: "⬟", 20: "⬠", 100: "◎" };
 
   const rollDice = (sides: number) => {
     setRolling(true);
+    setActiveSide(sides);
     setTimeout(() => {
-      const results: number[] = [];
-      let total = modifier;
-      for (let i = 0; i < count; i++) {
-        const r = Math.floor(Math.random() * sides) + 1;
-        results.push(r);
-        total += r;
+      const isD20 = sides === 20;
+      const useAdv = isD20 && advMode !== "normal";
+
+      let chosenRoll: number;
+      let allRolls: number[];
+      let formula: string;
+
+      if (useAdv) {
+        const r1 = Math.floor(Math.random() * 20) + 1;
+        const r2 = Math.floor(Math.random() * 20) + 1;
+        allRolls = [r1, r2];
+        chosenRoll = advMode === "advantage" ? Math.max(r1, r2) : Math.min(r1, r2);
+        const modStr2 = modifier !== 0 ? ` ${modifier >= 0 ? "+" : ""}${modifier}` : "";
+        formula = `[${r1}, ${r2}] → ${chosenRoll}${modStr2} = ${chosenRoll + modifier}`;
+      } else {
+        allRolls = [];
+        let sum = 0;
+        for (let i = 0; i < count; i++) {
+          const r = Math.floor(Math.random() * sides) + 1;
+          allRolls.push(r);
+          sum += r;
+        }
+        chosenRoll = allRolls[0];
+        const modStr2 = modifier !== 0 ? ` ${modifier >= 0 ? "+" : ""}${modifier}` : "";
+        formula = count > 1
+          ? `[${allRolls.join(", ")}] = ${sum}${modStr2} = ${sum + modifier}`
+          : `${chosenRoll}${modStr2} = ${chosenRoll + modifier}`;
       }
-      const isCrit = sides === 20 && results[0] === 20;
-      const isFumble = sides === 20 && results[0] === 1;
+
+      const total = chosenRoll + modifier;
+      const isCrit = isD20 && chosenRoll === 20;
+      const isFumble = isD20 && chosenRoll === 1;
+
+      const label = useAdv
+        ? advMode === "advantage" ? "🟢 Преимущество" : "🔴 Помеха"
+        : `${count}к${sides}`;
+
       setRolls((prev) => [{
-        dice: `${count}к${sides}`,
-        result: results[0],
+        dice: label,
+        result: chosenRoll,
         total,
         timestamp: new Date().toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" }),
         critical: isCrit || isFumble,
+        rolls2: useAdv ? allRolls : allRolls.length > 1 ? allRolls : undefined,
+        advMode: isD20 ? advMode : "normal",
+        formula,
       }, ...prev.slice(0, 19)]);
       setRolling(false);
     }, 250);
   };
 
+  const advOptions: { id: AdvMode; label: string; cls: string }[] = [
+    { id: "advantage", label: "🟢 Преимущество", cls: "adv-btn-advantage" },
+    { id: "normal", label: "⚪ Нормальный", cls: "adv-btn-normal" },
+    { id: "disadvantage", label: "🔴 Помеха", cls: "adv-btn-disadvantage" },
+  ];
+
   return (
-    <div className="space-y-5">
-      <div className="flex gap-6 mb-3">
+    <div className="space-y-4">
+      {/* Переключатель преимущество/помеха */}
+      <div>
+        <label className="text-xs text-parchment-muted mb-2 block">Режим броска к20</label>
+        <div className={`adv-switcher ${advMode === "advantage" ? "adv-switcher-adv" : advMode === "disadvantage" ? "adv-switcher-dis" : ""}`}>
+          {advOptions.map((o) => (
+            <button key={o.id}
+              onClick={() => setAdvMode(o.id)}
+              className={`adv-btn ${o.cls} ${advMode === o.id ? "adv-btn-active" : ""}`}>
+              {o.label}
+            </button>
+          ))}
+        </div>
+        {advMode !== "normal" && (
+          <p className="text-xs text-parchment-muted mt-1 italic">
+            {advMode === "advantage"
+              ? "Бросается 2к20, берётся большее значение"
+              : "Бросается 2к20, берётся меньшее значение"}
+          </p>
+        )}
+      </div>
+
+      {/* Контролы */}
+      <div className="flex gap-6">
         <div>
           <label className="text-xs text-parchment-muted mb-2 block">Количество</label>
           <div className="flex items-center gap-3">
-            <button className="btn-icon" onClick={() => setCount(Math.max(1, count - 1))}>−</button>
-            <span className="text-gold font-display text-2xl w-8 text-center">{count}</span>
-            <button className="btn-icon" onClick={() => setCount(Math.min(10, count + 1))}>+</button>
+            <button className="btn-icon"
+              onClick={() => setCount(Math.max(1, count - 1))}
+              disabled={advMode !== "normal"}>−</button>
+            <span className="text-gold font-display text-2xl w-8 text-center">
+              {advMode !== "normal" ? 2 : count}
+            </span>
+            <button className="btn-icon"
+              onClick={() => setCount(Math.min(10, count + 1))}
+              disabled={advMode !== "normal"}>+</button>
           </div>
         </div>
         <div>
@@ -440,29 +516,35 @@ function DiceTab() {
           </div>
         </div>
       </div>
+
+      {/* Кости */}
       <div className="dice-grid">
         {DICE_TYPES.map((d) => (
           <button key={d} onClick={() => rollDice(d)} disabled={rolling}
-            className={`dice-btn ${rolling ? "opacity-50 cursor-not-allowed" : ""}`}>
+            className={`dice-btn ${rolling && activeSide === d ? "dice-btn-rolling" : ""} ${rolling ? "opacity-50 cursor-not-allowed" : ""} ${advMode !== "normal" && d !== 20 ? "opacity-40" : ""}`}>
             <span className="dice-icon">{diceSymbols[d]}</span>
             <span className="dice-label">к{d}</span>
           </button>
         ))}
       </div>
 
+      {/* История */}
       <div>
         <h3 className="section-title">История бросков</h3>
-        <div className="space-y-2 overflow-y-auto scroll-fantasy" style={{ maxHeight: "280px" }}>
+        <div className="space-y-2 overflow-y-auto scroll-fantasy" style={{ maxHeight: "240px" }}>
           {rolls.length === 0 && (
             <p className="text-parchment-muted text-sm text-center py-8 italic">Бросьте кости, авантюрист...</p>
           )}
           {rolls.map((r, i) => (
-            <div key={i} className={`roll-entry ${r.critical ? "roll-critical" : ""}`}>
+            <div key={i} className={`roll-entry ${r.critical ? "roll-critical" : ""} ${r.advMode === "advantage" ? "roll-adv" : r.advMode === "disadvantage" ? "roll-dis" : ""}`}>
               <span className="roll-dice">{r.dice}</span>
-              <div className="flex-1 flex items-center gap-2">
-                <span className="roll-result">{r.total}</span>
-                {r.result === 20 && <span className="text-gold text-xs animate-pulse">✦ НАТ. 20!</span>}
-                {r.result === 1 && <span className="text-crimson text-xs animate-pulse">✦ ПРОВАЛ</span>}
+              <div className="flex-1 flex flex-col gap-0.5">
+                <div className="flex items-center gap-2">
+                  <span className="roll-result">{r.total}</span>
+                  {r.result === 20 && r.advMode !== "disadvantage" && <span className="text-gold text-xs animate-pulse">✦ НАТ. 20!</span>}
+                  {r.result === 1 && r.advMode !== "advantage" && <span className="text-crimson text-xs animate-pulse">✦ ПРОВАЛ</span>}
+                </div>
+                {r.formula && <span className="text-xs text-parchment-muted">{r.formula}</span>}
               </div>
               <span className="text-xs text-parchment-muted">{r.timestamp}</span>
             </div>
