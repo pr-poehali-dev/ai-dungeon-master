@@ -142,17 +142,22 @@ def handler(event: dict, context) -> dict:
             "body": {"error": "messages обязательны"},
         }
 
-    provider = body.get("provider", "openrouter")
+    # Читаем все доступные ключи
+    or_key = os.environ.get("OPENROUTER_API_KEY", "").strip()
+    oa_key = os.environ.get("OPENAI_API_KEY", "").strip()
 
-    # Выбираем ключ и endpoint по провайдеру
-    # OpenRouter обходит региональные ограничения и поддерживает OpenAI + Anthropic
-    if provider == "anthropic":
-        api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-        base_url = "https://api.anthropic.com/v1"
-        mapped_model = model
-    else:
-        # openai и openrouter — оба через OpenRouter
-        api_key = os.environ.get("OPENROUTER_API_KEY", "") or os.environ.get("OPENAI_API_KEY", "")
+    # Диагностика — вернём если нет ни одного ключа
+    if not or_key and not oa_key:
+        return {
+            "statusCode": 500,
+            "headers": {**cors_headers, "Content-Type": "application/json"},
+            "body": {"error": "Нет ни одного API ключа. Все переменные окружения: " + ", ".join(k for k in os.environ if "KEY" in k or "TOKEN" in k or "SECRET" in k)},
+        }
+
+    # Используем любой доступный ключ
+    api_key = or_key or oa_key
+    # Определяем endpoint: OpenRouter если ключ начинается с sk-or, иначе прямой OpenAI
+    if or_key:
         base_url = "https://openrouter.ai/api/v1"
         model_map = {
             "gpt-4o": "openai/gpt-4o",
@@ -163,19 +168,10 @@ def handler(event: dict, context) -> dict:
             "claude-haiku-3": "anthropic/claude-haiku-3-5",
         }
         mapped_model = model_map.get(model, f"openai/{model}")
-
-    # Диагностика: показываем какие ключи доступны (только первые символы)
-    or_key = os.environ.get("OPENROUTER_API_KEY", "")
-    oa_key = os.environ.get("OPENAI_API_KEY", "")
-    print(f"[DEBUG] OPENROUTER_API_KEY: {'SET(' + or_key[:8] + '...)' if or_key else 'EMPTY'}")
-    print(f"[DEBUG] OPENAI_API_KEY: {'SET(' + oa_key[:8] + '...)' if oa_key else 'EMPTY'}")
-
-    if not api_key:
-        return {
-            "statusCode": 500,
-            "headers": {**cors_headers, "Content-Type": "application/json"},
-            "body": {"error": f"API ключ не найден. OPENROUTER_API_KEY={'есть' if or_key else 'пусто'}, OPENAI_API_KEY={'есть' if oa_key else 'пусто'}"},
-        }
+    else:
+        # Прямой OpenAI с ключом sk-...
+        base_url = None
+        mapped_model = model
 
     system_prompt = build_context(body)
 
@@ -185,7 +181,7 @@ def handler(event: dict, context) -> dict:
         openai_messages.append({"role": role, "content": msg.get("text", "")})
 
     try:
-        client = OpenAI(api_key=api_key, base_url=base_url)
+        client = OpenAI(api_key=api_key, **( {"base_url": base_url} if base_url else {}))
         response = client.chat.completions.create(
             model=mapped_model,
             messages=openai_messages,
