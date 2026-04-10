@@ -164,11 +164,19 @@ def handler(event: dict, context) -> dict:
         }
         mapped_model = model_map.get(model, f"openai/{model}")
 
+    # Диагностика: показываем какие ключи доступны (только первые символы)
+    or_key = os.environ.get("OPENROUTER_API_KEY", "")
+    oa_key = os.environ.get("OPENAI_API_KEY", "")
+    print(f"[DEBUG] OPENROUTER_API_KEY: {'SET(' + or_key[:8] + '...)' if or_key else 'EMPTY'}")
+    print(f"[DEBUG] OPENAI_API_KEY: {'SET(' + oa_key[:8] + '...)' if oa_key else 'EMPTY'}")
+
     if not api_key:
         return {
             "statusCode": 500,
-            "headers": cors_headers,
-            "body": json.dumps({"error": "API ключ не настроен. Добавьте OPENROUTER_API_KEY в секреты на openrouter.ai"}),
+            "headers": {**cors_headers, "Content-Type": "application/json"},
+            "body": json.dumps({
+                "error": f"API ключ не найден. OPENROUTER_API_KEY={'есть' if or_key else 'пусто'}, OPENAI_API_KEY={'есть' if oa_key else 'пусто'}"
+            }),
         }
 
     system_prompt = build_context(body)
