@@ -186,15 +186,23 @@ def handler(event: dict, context) -> dict:
         role = "assistant" if msg.get("role") == "master" else "user"
         openai_messages.append({"role": role, "content": msg.get("text", "")})
 
-    client = OpenAI(api_key=api_key, base_url=base_url)
-    response = client.chat.completions.create(
-        model=mapped_model,
-        messages=openai_messages,
-        max_tokens=1000,
-        temperature=temperature,
-    )
-
-    reply = response.choices[0].message.content
+    try:
+        client = OpenAI(api_key=api_key, base_url=base_url)
+        response = client.chat.completions.create(
+            model=mapped_model,
+            messages=openai_messages,
+            max_tokens=1000,
+            temperature=temperature,
+        )
+        reply = response.choices[0].message.content
+    except Exception as e:
+        return {
+            "statusCode": 200,
+            "headers": {**cors_headers, "Content-Type": "application/json"},
+            "body": json.dumps({
+                "error": f"Ошибка API ({type(e).__name__}): {str(e)}"
+            }, ensure_ascii=False),
+        }
 
     return {
         "statusCode": 200,
