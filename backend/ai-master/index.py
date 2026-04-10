@@ -164,10 +164,11 @@ def handler(event: dict, context) -> dict:
             "body": {"error": "КЛЮЧИ ПУСТЫ. Env vars with KEY/SECRET: " + str({k: (v[:4]+"...") for k, v in os.environ.items() if "KEY" in k or "SECRET" in k or "TOKEN" in k})},
         }
 
-    # Используем любой доступный ключ
     api_key = or_key or oa_key
-    # Определяем endpoint: OpenRouter если ключ начинается с sk-or, иначе прямой OpenAI
-    if or_key:
+
+    # Если ключ OpenRouter (sk-or-v1-...) — используем их прокси
+    # Если обычный ключ OpenAI (sk-...) — идём напрямую в OpenAI
+    if or_key and or_key.startswith("sk-or"):
         base_url = "https://openrouter.ai/api/v1"
         model_map = {
             "gpt-4o": "openai/gpt-4o",
@@ -179,7 +180,7 @@ def handler(event: dict, context) -> dict:
         }
         mapped_model = model_map.get(model, f"openai/{model}")
     else:
-        # Прямой OpenAI с ключом sk-...
+        # Прямой OpenAI
         base_url = None
         mapped_model = model
 
