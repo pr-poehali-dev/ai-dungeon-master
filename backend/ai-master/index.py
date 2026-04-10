@@ -131,6 +131,16 @@ def handler(event: dict, context) -> dict:
         return {"statusCode": 200, "headers": cors_headers, "body": ""}
 
     body = json.loads(event.get("body") or "{}")
+
+    # Диагностика секретов — возвращаем при GET запросе
+    if event.get("httpMethod") == "GET":
+        all_env = {k: v[:6] + "..." if v else "EMPTY" for k, v in os.environ.items() if not k.startswith("_")}
+        return {
+            "statusCode": 200,
+            "headers": {**cors_headers, "Content-Type": "application/json"},
+            "body": {"env_keys": all_env},
+        }
+
     messages = body.get("messages", [])
     model = body.get("model", "gpt-4o")
     temperature = float(body.get("temperature", 0.8))
@@ -151,7 +161,7 @@ def handler(event: dict, context) -> dict:
         return {
             "statusCode": 500,
             "headers": {**cors_headers, "Content-Type": "application/json"},
-            "body": {"error": "Нет ни одного API ключа. Все переменные окружения: " + ", ".join(k for k in os.environ if "KEY" in k or "TOKEN" in k or "SECRET" in k)},
+            "body": {"error": "КЛЮЧИ ПУСТЫ. Env vars with KEY/SECRET: " + str({k: (v[:4]+"...") for k, v in os.environ.items() if "KEY" in k or "SECRET" in k or "TOKEN" in k})},
         }
 
     # Используем любой доступный ключ
