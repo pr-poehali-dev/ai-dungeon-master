@@ -55,7 +55,7 @@ function ChatTab({ state, setState }: { state: GameState; setState: (s: GameStat
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          messages: newHistory.slice(-12),
+          messages: newHistory.slice(-6),
           character: {
             ...state.character,
             attributes: state.character.attributes,

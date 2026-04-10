@@ -68,10 +68,9 @@ def build_context(body: dict) -> str:
             m = (v - 10) // 2
             return f"+{m}" if m >= 0 else str(m)
 
-        skills_str = ", ".join(
-            f"{k} {'+' if v >= 0 else ''}{v}"
-            for k, v in skills.items()
-        ) if skills else "нет данных"
+        # Только навыки с владением — сокращаем размер
+        prof_skills = {k: v for k, v in skills.items() if isinstance(v, (int, float)) and abs(v) > abs((skills.get(k, 0)))}
+        skills_str = ", ".join(f"{k} {'+' if v >= 0 else ''}{v}" for k, v in list(skills.items())[:8]) if skills else "нет"
 
         hp_raw = character.get("hp", {})
         if isinstance(hp_raw, dict):
@@ -96,52 +95,40 @@ def build_context(body: dict) -> str:
     if inventory:
         items = inventory.get("items", [])
         equipped = [i for i in items if i.get("equipped")]
-        equipped_str = ", ".join(f"{i['name']} ({i.get('mechanics', '')})" for i in equipped) if equipped else "ничего"
+        equipped_str = ", ".join(f"{i['name']}" for i in equipped) if equipped else "ничего"
         currency = inventory.get("currency", {})
-        total_weight = sum(i.get("weight", 0) * i.get("qty", 1) for i in items)
-        parts.append(f"""
-## Инвентарь
-- Экипировано: {equipped_str}
-- Всего предметов: {len(items)}, суммарный вес: {total_weight:.1f} фунт.
-- Кошелёк: {currency.get('pp', 0)} ПМ, {currency.get('gp', 0)} ЗМ, {currency.get('ep', 0)} ЭМ, {currency.get('sp', 0)} СМ, {currency.get('cp', 0)} ММ""")
+        gp = currency.get('gp', 0)
+        sp = currency.get('sp', 0)
+        parts.append(f"## Инвентарь\nЭкипировано: {equipped_str} | Предметов: {len(items)} | Золото: {gp}зм {sp}см")
 
     location = body.get("currentLocation", "")
     if location:
-        parts.append(f"\n## Текущая локация\n{location}")
+        parts.append(f"## Локация: {location}")
 
     npcs = body.get("npcs", [])
     if npcs:
         npc_lines = []
-        for npc in npcs[:6]:
+        for npc in npcs[:4]:
             rel = npc.get("relation", 0)
-            rel_str = "дружелюбен" if rel > 3 else "враждебен" if rel < -3 else "нейтрален"
-            speech = f" Речь: {npc['speechStyle']}." if npc.get("speechStyle") else ""
-            npc_lines.append(
-                f"- {npc['name']} ({npc.get('race', '?')}, {npc.get('role', '?')}) — отношение: {rel_str} ({rel:+d}).{speech}"
-            )
-        parts.append("\n## Известные NPC\n" + "\n".join(npc_lines))
+            rel_str = "друг" if rel > 3 else "враг" if rel < -3 else "нейтрал"
+            npc_lines.append(f"- {npc['name']} ({npc.get('role', '?')}, {rel_str})")
+        parts.append("## NPC\n" + "\n".join(npc_lines))
 
     world = body.get("world", {})
     if world:
-        factions = world.get("factions", [])
-        fac_str = ", ".join(f"{f['name']} (отношение {f.get('relation', 0):+d})" for f in factions) if factions else "нет"
-        parts.append(f"""
-## Мир: {world.get('name', '?')} ({world.get('era', '?')})
-{world.get('description', '')}
-Уровень магии: {world.get('magicLevel', '?')}
-Фракции: {fac_str}""")
+        parts.append(f"## Мир: {world.get('name', '?')}, {world.get('era', '?')}. {world.get('description', '')[:150]}")
 
     chronicle = body.get("chronicle", [])
     if chronicle:
-        recent = chronicle[-5:]
-        chron_lines = [f"- [{e.get('date', '?')}] {e.get('title', '?')}: {e.get('description', '')[:120]}..." for e in recent]
-        parts.append("\n## Последние события (хроника)\n" + "\n".join(chron_lines))
+        recent = chronicle[-3:]
+        chron_lines = [f"- {e.get('title', '?')}: {e.get('description', '')[:80]}" for e in recent]
+        parts.append("## Последние события\n" + "\n".join(chron_lines))
 
     plot_threads = body.get("plotThreads", [])
     active_plots = [p for p in plot_threads if p.get("status") == "active"]
     if active_plots:
-        plot_lines = [f"- «{p['name']}»: {p.get('description', '')[:100]}" + (f" ⏰ {p['timer']}" if p.get("timer") else "") for p in active_plots]
-        parts.append("\n## Активные сюжетные линии\n" + "\n".join(plot_lines))
+        plot_lines = [f"- «{p['name']}»" + (f" ⏰ {p['timer']}" if p.get("timer") else "") for p in active_plots[:2]]
+        parts.append("## Активные квесты\n" + "\n".join(plot_lines))
 
     return "\n".join(parts)
 
