@@ -1,8 +1,17 @@
-import { useState } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import Icon from "@/components/ui/icon";
+import ItemTooltip from "@/components/ItemTooltip";
+import SkillTooltip from "@/components/SkillTooltip";
+import {
+  loadState, saveState, exportState, importState,
+  GameState, ChatMessage, InventoryItem,
+  attrMod, modStr, getSkillBonus, currencyWeight,
+  ALL_SKILLS, ATTR_LABELS,
+} from "@/lib/gameStore";
+
+const AI_URL = "https://functions.poehali.dev/aeaa9d24-1eec-4354-8f5a-418a5d1f7c11";
 
 type Tab = "chat" | "character" | "inventory" | "dice" | "world" | "settings";
-
 const TABS: { id: Tab; label: string; icon: string; rune: string }[] = [
   { id: "chat", label: "Мастер", icon: "MessageSquare", rune: "ᚠ" },
   { id: "character", label: "Персонаж", icon: "User", rune: "ᚢ" },
@@ -11,102 +20,91 @@ const TABS: { id: Tab; label: string; icon: string; rune: string }[] = [
   { id: "world", label: "Мир", icon: "BookOpen", rune: "ᚱ" },
   { id: "settings", label: "Настройки", icon: "Settings", rune: "ᚲ" },
 ];
-
-const STATS = [
-  { name: "СИЛ", full: "Сила", value: 16, mod: "+3" },
-  { name: "ЛОВ", full: "Ловкость", value: 14, mod: "+2" },
-  { name: "ТЕЛ", full: "Телосложение", value: 15, mod: "+2" },
-  { name: "ИНТ", full: "Интеллект", value: 10, mod: "+0" },
-  { name: "МДР", full: "Мудрость", value: 12, mod: "+1" },
-  { name: "ХАР", full: "Харизма", value: 8, mod: "-1" },
-];
-
-const SKILLS = [
-  { name: "Акробатика", bonus: "+4", stat: "ЛОВ", prof: true },
-  { name: "Атлетика", bonus: "+5", stat: "СИЛ", prof: true },
-  { name: "Аркана", bonus: "+0", stat: "ИНТ", prof: false },
-  { name: "Восприятие", bonus: "+3", stat: "МДР", prof: true },
-  { name: "Убеждение", bonus: "-1", stat: "ХАР", prof: false },
-  { name: "Скрытность", bonus: "+2", stat: "ЛОВ", prof: false },
-  { name: "История", bonus: "+0", stat: "ИНТ", prof: false },
-  { name: "Проницательность", bonus: "+1", stat: "МДР", prof: false },
-];
-
-const INVENTORY_ITEMS = [
-  { name: "Длинный меч", type: "weapon", weight: 3, value: "15зм", desc: "1к8 рубящий" },
-  { name: "Щит", type: "armor", weight: 6, value: "10зм", desc: "+2 КД" },
-  { name: "Кольчуга", type: "armor", weight: 55, value: "75зм", desc: "КД 16" },
-  { name: "Зелье лечения ×3", type: "potion", weight: 1.5, value: "50зм", desc: "2к4+2 хп" },
-  { name: "Верёвка (50 фт.)", type: "gear", weight: 10, value: "1зм", desc: "Пеньковая" },
-  { name: "Факелы ×10", type: "gear", weight: 10, value: "1ср", desc: "1 час, 20 фт." },
-  { name: "Паёк (5 дней)", type: "food", weight: 10, value: "2зм 5ср", desc: "Сухой паёк" },
-  { name: "Книга заклинаний", type: "magic", weight: 3, value: "50зм", desc: "12 заклинаний" },
-];
-
 const DICE_TYPES = [4, 6, 8, 10, 12, 20, 100];
-
 type DiceRoll = { dice: string; result: number; total: number; timestamp: string; critical?: boolean };
 
-const CHAT_MESSAGES = [
-  {
-    role: "master",
-    text: "Добро пожаловать в Таверну «Пьяный дракон». Вечер в Вотердипе обещает быть тёмным — по углам шепчутся подозрительные личности, а у стойки бара сидит закутанный в плащ незнакомец с картой в руке.\n\nЧто делает Кэрган Буревестник?",
-    time: "21:14",
-  },
-  {
-    role: "player",
-    text: "Оглядываю таверну, стараясь не привлекать внимание. Хочу рассмотреть незнакомца поближе.",
-    time: "21:15",
-  },
-  {
-    role: "master",
-    text: "Бросок Проницательности (Мудрость): вы набрали 14. Незнакомец — пожилой эльф с усталыми глазами. На его руках следы от цепей, карта явно старая — пергамент пожелтел от времени. Он нервно смотрит на дверь каждую минуту.\n\nЗа соседним столиком двое людей в одинаковых серых плащах тихо переговариваются, поглядывая в сторону эльфа.",
-    time: "21:15",
-  },
-];
-
-const WORLD_EVENTS = [
-  { date: "День 1, Утро", title: "Прибытие в Вотердип", desc: "Партия прибыла в Город Великолепия через Южные ворота." },
-  { date: "День 1, Вечер", title: "Встреча в таверне", desc: "Обнаружен подозрительный эльф с картой неизвестного подземелья." },
-  { date: "День 2, День", title: "Допрос в порту", desc: "Выяснено, что эльф — Аэрандил Серебряный Лист, беглец из Подземья." },
-];
-
-const NPCS = [
-  { name: "Аэрандил Серебряный Лист", race: "Эльф", role: "Таинственный информатор", attitude: "neutral" },
-  { name: "Тавита Зимний Ветер", race: "Полурослик", role: "Трактирщица «Пьяного Дракона»", attitude: "friendly" },
-  { name: "Сержант Марко Вейн", race: "Человек", role: "Стражник городской стражи", attitude: "neutral" },
-  { name: "Теневой Лис", race: "Неизвестно", role: "Агент Серых плащей", attitude: "hostile" },
-];
-
-function RuneBorder() {
-  return (
-    <div className="absolute inset-0 pointer-events-none z-10">
-      <div className="rune-corner rune-corner-tl">᛫ ᚠ ᚢ ᚦ ᛫</div>
-      <div className="rune-corner rune-corner-tr">᛫ ᚨ ᚱ ᚲ ᛫</div>
-      <div className="rune-corner rune-corner-bl">᛫ ᚷ ᚹ ᚺ ᛫</div>
-      <div className="rune-corner rune-corner-br">᛫ ᚾ ᛁ ᛃ ᛫</div>
-    </div>
-  );
-}
-
-function StatBlock({ stat }: { stat: typeof STATS[0] }) {
-  return (
-    <div className="stat-block">
-      <div className="stat-value">{stat.value}</div>
-      <div className="stat-name">{stat.name}</div>
-      <div className="stat-mod">{stat.mod}</div>
-    </div>
-  );
-}
-
-function ChatTab() {
+// ─── Chat Tab ──────────────────────────────────────────────────────
+function ChatTab({ state, setState }: { state: GameState; setState: (s: GameState) => void }) {
   const [input, setInput] = useState("");
-  const [messages] = useState(CHAT_MESSAGES);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [state.chatHistory, loading]);
+
+  async function sendMessage() {
+    const text = input.trim();
+    if (!text || loading) return;
+    setError("");
+
+    const playerMsg: ChatMessage = {
+      role: "player",
+      text,
+      time: new Date().toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" }),
+    };
+    const newHistory = [...state.chatHistory, playerMsg];
+    const newState = { ...state, chatHistory: newHistory };
+    setState(newState);
+    setInput("");
+    setLoading(true);
+
+    try {
+      const res = await fetch(AI_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: newHistory.slice(-12),
+          character: {
+            ...state.character,
+            attributes: state.character.attributes,
+            skills: Object.fromEntries(
+              ALL_SKILLS.map((sk) => [
+                sk.name,
+                getSkillBonus(state.character, {
+                  ...sk,
+                  proficient: state.character.skills[sk.name]?.proficient ?? false,
+                }),
+              ])
+            ),
+          },
+          inventory: state.inventory,
+          npcs: state.npcs,
+          world: state.world,
+          chronicle: state.chronicle.slice(-5),
+          plotThreads: state.plotThreads,
+          currentLocation: state.currentLocation,
+          provider: state.settings.provider,
+          model: state.settings.model,
+          temperature: state.settings.temperature,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Ошибка сервера");
+
+      const masterMsg: ChatMessage = {
+        role: "master",
+        text: data.reply,
+        time: new Date().toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" }),
+      };
+      setState({ ...newState, chatHistory: [...newHistory, masterMsg] });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Неизвестная ошибка");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function handleKey(e: React.KeyboardEvent) {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  }
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto space-y-4 pr-1 scroll-fantasy mb-4" style={{ maxHeight: "calc(100vh - 320px)" }}>
-        {messages.map((msg, i) => (
+      <div className="flex-1 overflow-y-auto space-y-4 pr-1 scroll-fantasy mb-3">
+        {state.chatHistory.map((msg, i) => (
           <div key={i} className={`flex gap-3 ${msg.role === "player" ? "flex-row-reverse" : ""}`}>
             <div className={`chat-avatar ${msg.role === "master" ? "chat-avatar-master" : "chat-avatar-player"}`}>
               {msg.role === "master" ? "🐉" : "⚔️"}
@@ -117,93 +115,140 @@ function ChatTab() {
             </div>
           </div>
         ))}
+        {loading && (
+          <div className="flex gap-3">
+            <div className="chat-avatar chat-avatar-master">🐉</div>
+            <div className="chat-bubble chat-bubble-master">
+              <div className="typing-dots"><span/><span/><span/></div>
+            </div>
+          </div>
+        )}
+        {error && (
+          <div className="error-banner">⚠ {error}</div>
+        )}
+        <div ref={bottomRef} />
       </div>
-      <div className="mt-auto">
+      <div className="mt-auto flex-shrink-0">
         <textarea
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Опишите действие вашего персонажа..."
+          onKeyDown={handleKey}
+          placeholder="Опишите действие персонажа... (Enter — отправить)"
           className="fantasy-input w-full resize-none"
           rows={2}
+          disabled={loading}
         />
-        <button className="btn-primary mt-2 w-full flex items-center justify-center gap-2">
+        <button
+          onClick={sendMessage}
+          disabled={loading || !input.trim()}
+          className="btn-primary mt-2 w-full flex items-center justify-center gap-2 disabled:opacity-50"
+        >
           <Icon name="Send" size={16} />
-          Действовать
+          {loading ? "Мастер думает..." : "Действовать"}
         </button>
       </div>
     </div>
   );
 }
 
-function CharacterTab() {
+// ─── Character Tab ─────────────────────────────────────────────────
+function CharacterTab({ state }: { state: GameState }) {
+  const ch = state.character;
+  const attrs = ch.attributes;
+
   return (
     <div className="space-y-5 overflow-y-auto scroll-fantasy" style={{ maxHeight: "calc(100vh - 220px)" }}>
+      {/* Шапка */}
       <div className="character-header">
-        <div className="character-portrait">
-          <span className="text-5xl">🧙</span>
-        </div>
+        <div className="character-portrait"><span className="text-5xl">🧙</span></div>
         <div className="character-info flex-1">
-          <h2 className="font-display text-2xl text-gold leading-tight">Кэрган Буревестник</h2>
-          <p className="text-parchment-muted text-sm">Человек · Воин · 5 уровень</p>
-          <p className="text-parchment-muted text-sm">Предпосылка: Солдат · Нейтральный добрый</p>
+          <h2 className="font-display text-2xl text-gold leading-tight">{ch.name}</h2>
+          <p className="text-parchment-muted text-sm">{ch.race} · {ch.cls} · {ch.level} уровень</p>
+          <p className="text-parchment-muted text-sm">{ch.background} · {ch.alignment}</p>
           <div className="flex flex-wrap gap-3 mt-2">
             <div className="hp-block">
               <span className="text-xs text-parchment-muted">ХП</span>
               <div className="flex items-baseline gap-1">
-                <span className="text-xl font-bold text-crimson">42</span>
-                <span className="text-parchment-muted text-sm">/ 52</span>
+                <span className="text-xl font-bold text-crimson">{ch.hp.current}</span>
+                <span className="text-parchment-muted text-sm">/ {ch.hp.max}</span>
               </div>
-              <div className="hp-bar"><div className="hp-fill" style={{ width: "80%" }} /></div>
+              <div className="hp-bar"><div className="hp-fill" style={{ width: `${(ch.hp.current / ch.hp.max) * 100}%` }} /></div>
             </div>
-            <div className="hp-block">
-              <span className="text-xs text-parchment-muted">КД</span>
-              <span className="text-xl font-bold text-gold">18</span>
-            </div>
-            <div className="hp-block">
-              <span className="text-xs text-parchment-muted">Иниц.</span>
-              <span className="text-xl font-bold text-silver">+2</span>
-            </div>
-            <div className="hp-block">
-              <span className="text-xs text-parchment-muted">Скор.</span>
-              <span className="text-xl font-bold text-silver">30 фт</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div>
-        <h3 className="section-title">Характеристики</h3>
-        <div className="grid grid-cols-6 gap-2">
-          {STATS.map((s) => <StatBlock key={s.name} stat={s} />)}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-5">
-        <div>
-          <h3 className="section-title">Навыки</h3>
-          <div className="space-y-1">
-            {SKILLS.map((sk) => (
-              <div key={sk.name} className="skill-row">
-                <span className={`skill-dot ${sk.prof ? "skill-dot-prof" : ""}`} />
-                <span className="skill-name">{sk.name}</span>
-                <span className="skill-bonus">{sk.bonus}</span>
+            {[
+              { label: "КД", val: ch.ac, color: "text-gold" },
+              { label: "Иниц.", val: ch.initiative >= 0 ? `+${ch.initiative}` : ch.initiative, color: "text-silver" },
+              { label: "Скор.", val: `${ch.speed} фт`, color: "text-silver" },
+              { label: "Проф.", val: `+${ch.profBonus}`, color: "text-emerald" },
+            ].map(b => (
+              <div key={b.label} className="hp-block">
+                <span className="text-xs text-parchment-muted">{b.label}</span>
+                <span className={`text-xl font-bold ${b.color}`}>{b.val}</span>
               </div>
             ))}
           </div>
         </div>
+      </div>
+
+      {/* Характеристики */}
+      <div>
+        <h3 className="section-title">Характеристики</h3>
+        <div className="grid grid-cols-6 gap-2">
+          {(Object.keys(attrs) as (keyof typeof attrs)[]).map((key) => (
+            <div key={key} className="stat-block">
+              <div className="stat-value">{attrs[key]}</div>
+              <div className="stat-name">{ATTR_LABELS[key].slice(0, 3).toUpperCase()}</div>
+              <div className="stat-mod">{modStr(attrs[key])}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-5">
+        {/* Навыки с тултипом */}
+        <div>
+          <h3 className="section-title">Навыки (нажми для броска)</h3>
+          <div className="space-y-0.5">
+            {ALL_SKILLS.map((sk) => {
+              const profData = ch.skills[sk.name];
+              const isProficient = profData?.proficient ?? false;
+              const isExpertise = profData?.expertise ?? false;
+              const skWithProf = { ...sk, proficient: isProficient, expertise: isExpertise };
+              const bonus = getSkillBonus(ch, skWithProf);
+              return (
+                <SkillTooltip key={sk.name} skill={skWithProf} character={ch}>
+                  <div className="skill-row cursor-pointer hover:bg-white/5 px-1 rounded transition-colors">
+                    <span className={`skill-dot ${isExpertise ? "skill-dot-expertise" : isProficient ? "skill-dot-prof" : ""}`} />
+                    <span className="skill-name">{sk.name}</span>
+                    <span className="skill-attr-tag">{sk.attrLabel.slice(0, 3)}</span>
+                    <span className="skill-bonus">{bonus >= 0 ? `+${bonus}` : bonus}</span>
+                  </div>
+                </SkillTooltip>
+              );
+            })}
+          </div>
+        </div>
+
         <div className="space-y-4">
+          {/* Спасброски */}
           <div>
             <h3 className="section-title">Спасброски</h3>
             <div className="space-y-1">
-              {STATS.map((s) => (
-                <div key={s.name} className="skill-row">
-                  <span className={`skill-dot ${["СИЛ","ТЕЛ"].includes(s.name) ? "skill-dot-prof" : ""}`} />
-                  <span className="skill-name">{s.full}</span>
-                  <span className="skill-bonus">{["СИЛ","ТЕЛ"].includes(s.name) ? "+5" : s.mod}</span>
-                </div>
-              ))}
+              {(Object.keys(attrs) as (keyof typeof attrs)[]).map((key) => {
+                const isProfSave = key === "str" || key === "con";
+                const base = attrMod(attrs[key]);
+                const val = isProfSave ? base + ch.profBonus : base;
+                return (
+                  <div key={key} className="skill-row">
+                    <span className={`skill-dot ${isProfSave ? "skill-dot-prof" : ""}`} />
+                    <span className="skill-name">{ATTR_LABELS[key]}</span>
+                    <span className="skill-bonus">{val >= 0 ? `+${val}` : val}</span>
+                  </div>
+                );
+              })}
             </div>
           </div>
+
+          {/* XP */}
           <div>
             <h3 className="section-title">Опыт</h3>
             <div className="progress-block">
@@ -215,11 +260,13 @@ function CharacterTab() {
               <p className="text-xs text-parchment-muted mt-1">До 6 ур.: 7 500 XP</p>
             </div>
           </div>
+
+          {/* Черты */}
           <div>
             <h3 className="section-title">Классовые черты</h3>
             <div className="space-y-1 text-sm">
-              {["⚔️ Атака действием бонуса", "🛡️ Второе дыхание (1/отдых)", "💫 Всплеск действий (1/отдых)", "🗡️ Боевой стиль: Дуэль +2"].map(t => (
-                <div key={t} className="trait-item">{t}</div>
+              {ch.classFeatures.map((f) => (
+                <div key={f} className="trait-item">{f}</div>
               ))}
             </div>
           </div>
@@ -229,60 +276,104 @@ function CharacterTab() {
   );
 }
 
-function InventoryTab() {
-  const totalWeight = INVENTORY_ITEMS.reduce((s, i) => s + i.weight, 0);
-  const maxWeight = 16 * 15;
+// ─── Inventory Tab ─────────────────────────────────────────────────
+function InventoryTab({ state, setState }: { state: GameState; setState: (s: GameState) => void }) {
+  const { items, currency } = state.inventory;
+  const itemWeight = items.reduce((s, i) => s + i.weight * i.qty, 0);
+  const coinWeight = currencyWeight(currency);
+  const totalWeight = itemWeight + coinWeight;
+  const maxWeight = state.character.attributes.str * 15;
+
   const typeEmoji: Record<string, string> = {
-    weapon: "⚔️", armor: "🛡️", potion: "🧪", gear: "🎒", food: "🍖", magic: "✨",
+    weapon: "⚔️", armor: "🛡️", potion: "🧪", gear: "🎒", food: "🍖", magic: "✨", tool: "🔧",
   };
   const typeColor: Record<string, string> = {
     weapon: "text-crimson", armor: "text-silver", potion: "text-emerald",
-    gear: "text-parchment-muted", food: "text-amber-400", magic: "text-violet-300",
+    gear: "text-parchment-muted", food: "text-amber-400", magic: "text-violet-300", tool: "text-parchment-muted",
   };
+
+  function handleEquip(id: string) {
+    const newItems = items.map((item) =>
+      item.id === id ? { ...item, equipped: !item.equipped } : item
+    );
+    setState({ ...state, inventory: { ...state.inventory, items: newItems } });
+  }
+
+  function handleDrop(id: string) {
+    setState({ ...state, inventory: { ...state.inventory, items: items.filter((i) => i.id !== id) } });
+  }
+
+  function handleUse(id: string) {
+    const item = items.find((i) => i.id === id);
+    if (!item) return;
+    const newItems = item.qty > 1
+      ? items.map((i) => i.id === id ? { ...i, qty: i.qty - 1 } : i)
+      : items.filter((i) => i.id !== id);
+    // Зелье лечения: прибавляем HP
+    if (item.type === "potion" && item.name.includes("лечения")) {
+      const heal = Math.floor(Math.random() * 4) + 1 + Math.floor(Math.random() * 4) + 1 + 2;
+      const newHp = Math.min(state.character.hp.current + heal, state.character.hp.max);
+      setState({
+        ...state,
+        character: { ...state.character, hp: { ...state.character.hp, current: newHp } },
+        inventory: { ...state.inventory, items: newItems },
+      });
+    } else {
+      setState({ ...state, inventory: { ...state.inventory, items: newItems } });
+    }
+  }
+
+  const coinColors: Record<string, string> = {
+    cp: "text-amber-600", sp: "text-silver", ep: "text-teal-300", gp: "text-gold", pp: "text-slate-300",
+  };
+  const coinLabels = { cp: "Медь (мм)", sp: "Серебро (см)", ep: "Электрум (эм)", gp: "Золото (зм)", pp: "Платина (пм)" };
 
   return (
     <div className="space-y-5 overflow-y-auto scroll-fantasy" style={{ maxHeight: "calc(100vh - 220px)" }}>
+      {/* Валюта */}
       <div>
-        <h3 className="section-title mb-3">Валюта</h3>
+        <h3 className="section-title mb-3">Кошелёк</h3>
         <div className="grid grid-cols-5 gap-2">
-          {[
-            { label: "Медь", sym: "мм", amount: 47, cls: "text-amber-600" },
-            { label: "Серебро", sym: "ср", amount: 23, cls: "text-silver" },
-            { label: "Электрум", sym: "эл", amount: 0, cls: "text-teal-300" },
-            { label: "Золото", sym: "зм", amount: 158, cls: "text-gold" },
-            { label: "Платина", sym: "пл", amount: 2, cls: "text-slate-300" },
-          ].map((c) => (
-            <div key={c.sym} className="coin-block">
-              <span className={`text-xl font-bold ${c.cls}`}>{c.amount}</span>
-              <span className={`text-xs ${c.cls}`}>{c.sym}</span>
-              <span className="text-xs text-parchment-muted">{c.label}</span>
+          {(Object.keys(currency) as (keyof typeof currency)[]).map((k) => (
+            <div key={k} className="coin-block">
+              <span className={`text-xl font-bold ${coinColors[k]}`}>{currency[k]}</span>
+              <span className={`text-xs font-semibold ${coinColors[k]}`}>{k.toUpperCase()}</span>
+              <span className="text-xs text-parchment-muted leading-tight text-center">{coinLabels[k]}</span>
             </div>
           ))}
         </div>
+        <p className="text-xs text-parchment-muted mt-2">Вес монет: {coinWeight} фунт.</p>
       </div>
 
+      {/* Вес */}
       <div>
-        <div className="flex justify-between items-center mb-2">
-          <h3 className="section-title mb-0">Предметы</h3>
-          <span className="text-xs text-parchment-muted">{totalWeight} / {maxWeight} фунтов</span>
+        <div className="flex justify-between items-center mb-1">
+          <h3 className="section-title mb-0">Снаряжение</h3>
+          <span className="text-xs text-parchment-muted">{totalWeight.toFixed(1)} / {maxWeight} фунтов</span>
         </div>
         <div className="weight-bar mb-3">
-          <div className="weight-fill" style={{ width: `${(totalWeight / maxWeight) * 100}%` }} />
+          <div className="weight-fill" style={{ width: `${Math.min((totalWeight / maxWeight) * 100, 100)}%` }} />
         </div>
         <div className="space-y-2">
-          {INVENTORY_ITEMS.map((item, i) => (
-            <div key={i} className="inventory-item">
-              <div className={`text-sm font-semibold ${typeColor[item.type]}`}>
-                {typeEmoji[item.type]} {item.name}
+          {items.map((item) => (
+            <ItemTooltip key={item.id} item={item} onEquip={handleEquip} onUse={handleUse} onDrop={handleDrop}>
+              <div className={`inventory-item cursor-pointer ${item.equipped ? "inventory-item-equipped" : ""}`}>
+                <div className="flex justify-between items-start">
+                  <div className={`text-sm font-semibold ${typeColor[item.type]}`}>
+                    {typeEmoji[item.type]} {item.name}
+                    {item.qty > 1 && <span className="text-parchment-muted ml-1">×{item.qty}</span>}
+                  </div>
+                  {item.equipped && <span className="text-xs text-gold opacity-75">✦ Экипирован</span>}
+                </div>
+                <div className="flex gap-3 text-xs text-parchment-muted mt-0.5">
+                  <span>{item.mechanics || item.desc}</span>
+                  <span>·</span>
+                  <span>{item.weight} фунт.</span>
+                  <span>·</span>
+                  <span className="text-gold">{item.value}</span>
+                </div>
               </div>
-              <div className="flex gap-3 text-xs text-parchment-muted mt-0.5">
-                <span>{item.desc}</span>
-                <span>·</span>
-                <span>{item.weight} фунт.</span>
-                <span>·</span>
-                <span className="text-gold">{item.value}</span>
-              </div>
-            </div>
+            </ItemTooltip>
           ))}
         </div>
       </div>
@@ -290,11 +381,14 @@ function InventoryTab() {
   );
 }
 
+// ─── Dice Tab ──────────────────────────────────────────────────────
 function DiceTab() {
   const [rolls, setRolls] = useState<DiceRoll[]>([]);
   const [count, setCount] = useState(1);
   const [modifier, setModifier] = useState(0);
   const [rolling, setRolling] = useState(false);
+
+  const diceSymbols: Record<number, string> = { 4: "◆", 6: "⬡", 8: "◈", 10: "◉", 12: "⬟", 20: "⬠", 100: "◎" };
 
   const rollDice = (sides: number) => {
     setRolling(true);
@@ -308,56 +402,47 @@ function DiceTab() {
       }
       const isCrit = sides === 20 && results[0] === 20;
       const isFumble = sides === 20 && results[0] === 1;
-      const entry: DiceRoll = {
+      setRolls((prev) => [{
         dice: `${count}к${sides}`,
         result: results[0],
         total,
         timestamp: new Date().toLocaleTimeString("ru", { hour: "2-digit", minute: "2-digit" }),
         critical: isCrit || isFumble,
-      };
-      setRolls((prev) => [entry, ...prev.slice(0, 19)]);
+      }, ...prev.slice(0, 19)]);
       setRolling(false);
-    }, 300);
+    }, 250);
   };
-
-  const diceSymbols: Record<number, string> = { 4: "◆", 6: "⬡", 8: "◈", 10: "◉", 12: "⬟", 20: "⬠", 100: "◎" };
 
   return (
     <div className="space-y-5">
-      <div>
-        <div className="flex gap-6 mb-5">
-          <div>
-            <label className="text-xs text-parchment-muted mb-2 block">Количество костей</label>
-            <div className="flex items-center gap-3">
-              <button className="btn-icon" onClick={() => setCount(Math.max(1, count - 1))}>−</button>
-              <span className="text-gold font-display text-2xl w-8 text-center">{count}</span>
-              <button className="btn-icon" onClick={() => setCount(Math.min(10, count + 1))}>+</button>
-            </div>
-          </div>
-          <div>
-            <label className="text-xs text-parchment-muted mb-2 block">Модификатор</label>
-            <div className="flex items-center gap-3">
-              <button className="btn-icon" onClick={() => setModifier(modifier - 1)}>−</button>
-              <span className="text-gold font-display text-2xl w-12 text-center">
-                {modifier >= 0 ? `+${modifier}` : modifier}
-              </span>
-              <button className="btn-icon" onClick={() => setModifier(modifier + 1)}>+</button>
-            </div>
+      <div className="flex gap-6 mb-3">
+        <div>
+          <label className="text-xs text-parchment-muted mb-2 block">Количество</label>
+          <div className="flex items-center gap-3">
+            <button className="btn-icon" onClick={() => setCount(Math.max(1, count - 1))}>−</button>
+            <span className="text-gold font-display text-2xl w-8 text-center">{count}</span>
+            <button className="btn-icon" onClick={() => setCount(Math.min(10, count + 1))}>+</button>
           </div>
         </div>
-        <div className="dice-grid">
-          {DICE_TYPES.map((d) => (
-            <button
-              key={d}
-              onClick={() => rollDice(d)}
-              disabled={rolling}
-              className={`dice-btn ${rolling ? "opacity-50 cursor-not-allowed" : ""}`}
-            >
-              <span className="dice-icon">{diceSymbols[d]}</span>
-              <span className="dice-label">к{d}</span>
-            </button>
-          ))}
+        <div>
+          <label className="text-xs text-parchment-muted mb-2 block">Модификатор</label>
+          <div className="flex items-center gap-3">
+            <button className="btn-icon" onClick={() => setModifier(modifier - 1)}>−</button>
+            <span className="text-gold font-display text-2xl w-12 text-center">
+              {modifier >= 0 ? `+${modifier}` : modifier}
+            </span>
+            <button className="btn-icon" onClick={() => setModifier(modifier + 1)}>+</button>
+          </div>
         </div>
+      </div>
+      <div className="dice-grid">
+        {DICE_TYPES.map((d) => (
+          <button key={d} onClick={() => rollDice(d)} disabled={rolling}
+            className={`dice-btn ${rolling ? "opacity-50 cursor-not-allowed" : ""}`}>
+            <span className="dice-icon">{diceSymbols[d]}</span>
+            <span className="dice-label">к{d}</span>
+          </button>
+        ))}
       </div>
 
       <div>
@@ -371,7 +456,7 @@ function DiceTab() {
               <span className="roll-dice">{r.dice}</span>
               <div className="flex-1 flex items-center gap-2">
                 <span className="roll-result">{r.total}</span>
-                {r.result === 20 && <span className="text-gold text-xs animate-pulse">✦ КРИТИЧЕСКИЙ УДАР</span>}
+                {r.result === 20 && <span className="text-gold text-xs animate-pulse">✦ НАТ. 20!</span>}
                 {r.result === 1 && <span className="text-crimson text-xs animate-pulse">✦ ПРОВАЛ</span>}
               </div>
               <span className="text-xs text-parchment-muted">{r.timestamp}</span>
@@ -383,182 +468,224 @@ function DiceTab() {
   );
 }
 
-function WorldTab() {
-  const [worldSection, setWorldSection] = useState<"lore" | "events" | "npcs">("lore");
+// ─── World Tab ─────────────────────────────────────────────────────
+function WorldTab({ state }: { state: GameState }) {
+  const [section, setSection] = useState<"lore" | "events" | "npcs" | "plots">("lore");
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
         {[
-          { id: "lore", label: "📖 Библия мира" },
-          { id: "events", label: "📜 События" },
+          { id: "lore", label: "📖 Мир" },
+          { id: "events", label: "📜 Хроника" },
           { id: "npcs", label: "👥 NPC" },
+          { id: "plots", label: "🗺️ Сюжет" },
         ].map((s) => (
-          <button
-            key={s.id}
-            onClick={() => setWorldSection(s.id as "lore" | "events" | "npcs")}
-            className={`sub-tab ${worldSection === s.id ? "sub-tab-active" : ""}`}
-          >
+          <button key={s.id}
+            onClick={() => setSection(s.id as typeof section)}
+            className={`sub-tab ${section === s.id ? "sub-tab-active" : ""}`}>
             {s.label}
           </button>
         ))}
       </div>
 
-      {worldSection === "lore" && (
-        <div className="overflow-y-auto scroll-fantasy" style={{ maxHeight: "calc(100vh - 310px)" }}>
-          <h3 className="font-display text-lg text-gold mb-3">Фаэрун — Забытые Королевства</h3>
+      <div className="overflow-y-auto scroll-fantasy" style={{ maxHeight: "calc(100vh - 310px)" }}>
+        {section === "lore" && (
           <div className="space-y-3 text-sm text-parchment-muted leading-relaxed">
-            <p>Фаэрун — обширный континент на планете Торил, мир меча и магии, где боги ходят по земле, а судьбы героев вершатся в темницах под руинами древних империй.</p>
-            <h4 className="text-parchment font-semibold mt-4 text-base">Вотердип</h4>
-            <p>Город Великолепия — крупнейший и самый влиятельный торговый порт Северного Фаэруна. Управляется Открытой Лордой Лэрал Силвермейн и тайным советом Замаскированных Лордов.</p>
-            <h4 className="text-parchment font-semibold mt-4 text-base">Тайные фракции</h4>
-            <p>Среди теней города действуют Арфисты, Приказ Перчатки, Изумрудный Анклав, Лорды Альянса и Знак Жнеца — каждая со своими целями и методами.</p>
-            <h4 className="text-parchment font-semibold mt-4 text-base">Текущая угроза</h4>
-            <p>Таинственные «Серые плащи» похищают торговцев в порту. Городская стража бездействует. Кто за этим стоит — неизвестно.</p>
+            <h3 className="font-display text-lg text-gold">{state.world.name} — {state.world.era}</h3>
+            <p>{state.world.description}</p>
+            <p className="text-xs">Уровень магии: <span className="text-gold">{state.world.magicLevel}</span></p>
+            {state.world.factions.length > 0 && (
+              <>
+                <h4 className="text-parchment font-semibold">Фракции</h4>
+                {state.world.factions.map((f, i) => (
+                  <div key={i} className="event-item">
+                    <div className="event-title">{f.name}</div>
+                    <div className="event-desc">{f.goal}</div>
+                    <div className={`text-xs mt-1 ${f.relation > 0 ? "text-emerald" : f.relation < 0 ? "text-crimson" : "text-gold"}`}>
+                      Отношение: {f.relation > 0 ? `+${f.relation}` : f.relation}
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
+            {state.world.locations.length > 0 && (
+              <>
+                <h4 className="text-parchment font-semibold mt-2">Известные места</h4>
+                {state.world.locations.map((l, i) => (
+                  <div key={i} className="event-item">
+                    <div className="event-title">{l.name} <span className="text-xs text-parchment-muted">({l.type})</span></div>
+                    <div className="event-desc">{l.description}</div>
+                  </div>
+                ))}
+              </>
+            )}
           </div>
-        </div>
-      )}
+        )}
 
-      {worldSection === "events" && (
-        <div className="space-y-3 overflow-y-auto scroll-fantasy" style={{ maxHeight: "calc(100vh - 310px)" }}>
-          {WORLD_EVENTS.map((e, i) => (
-            <div key={i} className="event-item">
-              <div className="event-date">{e.date}</div>
-              <div className="event-title">{e.title}</div>
-              <div className="event-desc">{e.desc}</div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {worldSection === "npcs" && (
-        <div className="space-y-3 overflow-y-auto scroll-fantasy" style={{ maxHeight: "calc(100vh - 310px)" }}>
-          {NPCS.map((npc, i) => (
-            <div key={i} className="npc-item">
-              <div className="flex justify-between items-start">
-                <div>
-                  <div className="text-parchment font-semibold">{npc.name}</div>
-                  <div className="text-parchment-muted text-xs">{npc.race} · {npc.role}</div>
-                </div>
-                <span className={`attitude-badge attitude-${npc.attitude}`}>
-                  {npc.attitude === "friendly" ? "Дружелюбен" : npc.attitude === "hostile" ? "Враждебен" : "Нейтрален"}
-                </span>
+        {section === "events" && (
+          <div className="space-y-3">
+            {state.chronicle.length === 0 && <p className="text-parchment-muted text-sm italic text-center py-8">Хроника пуста...</p>}
+            {state.chronicle.map((e) => (
+              <div key={e.id} className="event-item">
+                <div className="event-date">{e.date}</div>
+                <div className="event-title">{e.title}</div>
+                <div className="event-desc">{e.description}</div>
+                {e.location && <div className="text-xs text-parchment-muted mt-1">📍 {e.location}</div>}
+                {e.flags.length > 0 && (
+                  <div className="flex gap-1 mt-1 flex-wrap">
+                    {e.flags.map((f) => <span key={f} className="attitude-badge attitude-neutral text-xs">{f}</span>)}
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+
+        {section === "npcs" && (
+          <div className="space-y-3">
+            {state.npcs.map((npc) => (
+              <div key={npc.id} className="npc-item">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <div className="text-parchment font-semibold">{npc.name}</div>
+                    <div className="text-parchment-muted text-xs">{npc.race} · {npc.role}</div>
+                    {npc.location && <div className="text-xs text-parchment-muted mt-0.5">📍 {npc.location}</div>}
+                    {npc.traits.length > 0 && (
+                      <div className="text-xs text-parchment-muted mt-1">{npc.traits.join(", ")}</div>
+                    )}
+                  </div>
+                  <span className={`attitude-badge ${npc.relation > 3 ? "attitude-friendly" : npc.relation < -3 ? "attitude-hostile" : "attitude-neutral"}`}>
+                    {npc.relation > 3 ? "Дружелюбен" : npc.relation < -3 ? "Враждебен" : "Нейтрален"} ({npc.relation > 0 ? "+" : ""}{npc.relation})
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {section === "plots" && (
+          <div className="space-y-3">
+            {state.plotThreads.map((p) => (
+              <div key={p.id} className={`event-item ${p.status === "completed" ? "opacity-50" : ""}`}>
+                <div className="flex justify-between items-start mb-1">
+                  <div className="event-title">{p.name}</div>
+                  <span className={`attitude-badge ${p.status === "active" ? "attitude-friendly" : p.status === "paused" ? "attitude-neutral" : "attitude-hostile"}`}>
+                    {p.status === "active" ? "Активна" : p.status === "paused" ? "Пауза" : "Завершена"}
+                  </span>
+                </div>
+                <div className="event-desc">{p.description}</div>
+                {p.timer && <div className="text-xs text-crimson mt-1">⏰ {p.timer}</div>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-function SettingsTab() {
-  const [provider, setProvider] = useState("openai");
-  const [model, setModel] = useState("gpt-4o");
-  const [temperature, setTemperature] = useState(0.8);
-  const [apiKey, setApiKey] = useState("");
+// ─── Settings Tab ──────────────────────────────────────────────────
+function SettingsTab({ state, setState }: { state: GameState; setState: (s: GameState) => void }) {
+  const s = state.settings;
+  const update = (patch: Partial<typeof s>) => setState({ ...state, settings: { ...s, ...patch } });
+  const fileRef = useRef<HTMLInputElement>(null);
 
   return (
     <div className="space-y-5 overflow-y-auto scroll-fantasy" style={{ maxHeight: "calc(100vh - 220px)" }}>
       <div>
-        <h3 className="section-title">LLM Провайдер</h3>
+        <h3 className="section-title">Провайдер</h3>
         <div className="grid grid-cols-3 gap-2">
-          {["openai", "anthropic", "local"].map((p) => (
-            <button
-              key={p}
-              onClick={() => setProvider(p)}
-              className={`provider-btn ${provider === p ? "provider-btn-active" : ""}`}
-            >
-              {p === "openai" ? "OpenAI" : p === "anthropic" ? "Anthropic" : "Local"}
+          {(["openrouter", "openai", "anthropic"] as const).map((p) => (
+            <button key={p}
+              onClick={() => update({ provider: p })}
+              className={`provider-btn ${s.provider === p ? "provider-btn-active" : ""}`}>
+              {p === "openrouter" ? "OpenRouter" : p === "openai" ? "OpenAI" : "Anthropic"}
             </button>
           ))}
         </div>
+        {s.provider === "openrouter" && (
+          <p className="text-xs text-parchment-muted mt-2">✦ OpenRouter работает из России, поддерживает все модели OpenAI и Anthropic</p>
+        )}
       </div>
 
       <div>
         <h3 className="section-title">Модель</h3>
-        <select value={model} onChange={(e) => setModel(e.target.value)} className="fantasy-select w-full">
-          {provider === "openai" && <>
-            <option value="gpt-4o">GPT-4o</option>
-            <option value="gpt-4-turbo">GPT-4 Turbo</option>
-            <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-          </>}
-          {provider === "anthropic" && <>
-            <option value="claude-opus-4">Claude Opus 4</option>
-            <option value="claude-sonnet-4">Claude Sonnet 4</option>
-            <option value="claude-haiku-3">Claude Haiku 3.5</option>
-          </>}
-          {provider === "local" && <>
-            <option value="ollama-llama">Llama 3 (Ollama)</option>
-            <option value="lm-studio">LM Studio</option>
-          </>}
+        <select value={s.model} onChange={(e) => update({ model: e.target.value })} className="fantasy-select w-full">
+          <option value="gpt-4o">GPT-4o</option>
+          <option value="gpt-4-turbo">GPT-4 Turbo</option>
+          <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+          <option value="claude-opus-4">Claude Opus 4</option>
+          <option value="claude-sonnet-4">Claude Sonnet 4.5</option>
+          <option value="claude-haiku-3">Claude Haiku 3.5</option>
         </select>
       </div>
 
       <div>
-        <h3 className="section-title">API Ключ</h3>
-        <input
-          type="password"
-          value={apiKey}
-          onChange={(e) => setApiKey(e.target.value)}
-          placeholder="sk-..."
-          className="fantasy-input w-full"
-        />
-      </div>
-
-      <div>
-        <div className="flex justify-between mb-2">
+        <div className="flex justify-between mb-1">
           <h3 className="section-title mb-0">Температура</h3>
-          <span className="text-gold font-bold">{temperature}</span>
+          <span className="text-gold font-bold">{s.temperature}</span>
         </div>
-        <input
-          type="range" min={0} max={2} step={0.1}
-          value={temperature}
-          onChange={(e) => setTemperature(parseFloat(e.target.value))}
-          className="fantasy-range w-full"
-        />
+        <input type="range" min={0} max={2} step={0.1}
+          value={s.temperature}
+          onChange={(e) => update({ temperature: parseFloat(e.target.value) })}
+          className="fantasy-range w-full" />
         <div className="flex justify-between text-xs text-parchment-muted mt-1">
-          <span>Точный</span>
-          <span>Творческий</span>
+          <span>Точный</span><span>Творческий</span>
         </div>
       </div>
 
       <div>
         <h3 className="section-title">Параметры игры</h3>
-        <div className="space-y-2">
-          {[
-            { label: "Система правил", value: "D&D 5e" },
-            { label: "Сложность", value: "Обычная" },
-            { label: "Язык нарратива", value: "Русский" },
-            { label: "Стиль мастера", value: "Эпический" },
-          ].map((r) => (
-            <div key={r.label} className="setting-row">
-              <span className="text-parchment-muted text-sm">{r.label}</span>
-              <span className="text-parchment text-sm font-medium">{r.value}</span>
-            </div>
-          ))}
-        </div>
+        {[
+          { label: "Система правил", value: "D&D 5e" },
+          { label: "Сложность", value: s.difficulty },
+          { label: "Язык", value: s.language },
+          { label: "Стиль мастера", value: s.narrativeStyle },
+        ].map((r) => (
+          <div key={r.label} className="setting-row">
+            <span className="text-parchment-muted text-sm">{r.label}</span>
+            <span className="text-parchment text-sm font-medium">{r.value}</span>
+          </div>
+        ))}
       </div>
 
-      <button className="btn-primary w-full flex items-center justify-center gap-2">
-        <Icon name="Save" size={16} />
-        Сохранить настройки
-      </button>
+      <div className="space-y-2">
+        <h3 className="section-title">Кампания</h3>
+        <button onClick={() => exportState(state)} className="btn-primary w-full flex items-center justify-center gap-2">
+          <Icon name="Download" size={16} /> Экспортировать кампанию
+        </button>
+        <button onClick={() => fileRef.current?.click()} className="provider-btn w-full flex items-center justify-center gap-2 py-2">
+          <Icon name="Upload" size={16} /> Импортировать кампанию
+        </button>
+        <input ref={fileRef} type="file" accept=".json" className="hidden"
+          onChange={async (e) => {
+            const file = e.target.files?.[0];
+            if (file) { const s = await importState(file); setState(s); }
+          }} />
+      </div>
     </div>
   );
 }
 
+// ─── Root ──────────────────────────────────────────────────────────
 export default function Index() {
   const [activeTab, setActiveTab] = useState<Tab>("chat");
+  const [state, setStateRaw] = useState<GameState>(loadState);
+
+  const setState = useCallback((newState: GameState) => {
+    setStateRaw(newState);
+    saveState(newState);
+  }, []);
 
   const renderContent = () => {
     switch (activeTab) {
-      case "chat": return <ChatTab />;
-      case "character": return <CharacterTab />;
-      case "inventory": return <InventoryTab />;
+      case "chat": return <ChatTab state={state} setState={setState} />;
+      case "character": return <CharacterTab state={state} />;
+      case "inventory": return <InventoryTab state={state} setState={setState} />;
       case "dice": return <DiceTab />;
-      case "world": return <WorldTab />;
-      case "settings": return <SettingsTab />;
+      case "world": return <WorldTab state={state} />;
+      case "settings": return <SettingsTab state={state} setState={setState} />;
     }
   };
 
@@ -584,11 +711,8 @@ export default function Index() {
         <main className="app-main">
           <nav className="app-nav">
             {TABS.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`nav-item ${activeTab === tab.id ? "nav-item-active" : ""}`}
-              >
+              <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                className={`nav-item ${activeTab === tab.id ? "nav-item-active" : ""}`}>
                 <span className="nav-rune">{tab.rune}</span>
                 <Icon name={tab.icon} size={18} fallback="CircleAlert" />
                 <span className="nav-label">{tab.label}</span>

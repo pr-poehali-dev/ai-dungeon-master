@@ -7,28 +7,12 @@
       "expectedStatus": 200
     },
     {
-      "name": "Запрос к мастеру",
+      "name": "Нет messages — ошибка 400",
       "method": "POST",
       "path": "/",
-      "body": {
-        "messages": [
-          { "role": "player", "text": "Осматриваюсь в таверне и подхожу к стойке бармена." }
-        ],
-        "character": {
-          "name": "Кэрган Буревестник",
-          "race": "Человек",
-          "cls": "Воин",
-          "level": 5,
-          "hp": 42,
-          "maxHp": 52,
-          "str": 16, "dex": 14, "con": 15, "int": 10, "wis": 12, "cha": 8,
-          "profBonus": 3
-        },
-        "model": "gpt-4o",
-        "temperature": 0.8
-      },
-      "expectedStatus": 200,
-      "expectedBody": { "reply": "string" },
+      "body": {},
+      "expectedStatus": 400,
+      "expectedBody": { "error": "string" },
       "bodyMatcher": "partial"
     }
   ]

@@ -1012,6 +1012,449 @@
   border: 1px solid rgba(212, 160, 23, 0.1);
 }
 
+/* ─── INVENTORY EXTRAS ───────────────────────── */
+.inventory-item-equipped {
+  border-color: rgba(212, 160, 23, 0.4) !important;
+  background: rgba(212, 160, 23, 0.06) !important;
+}
+
+.skill-attr-tag {
+  font-family: "Cinzel", serif;
+  font-size: 0.5rem;
+  letter-spacing: 0.05em;
+  color: rgba(212, 160, 23, 0.4);
+  text-transform: uppercase;
+  padding: 1px 3px;
+  border: 1px solid rgba(212, 160, 23, 0.15);
+  border-radius: 2px;
+  margin-right: 2px;
+}
+
+.skill-dot-expertise {
+  background: var(--gold-bright);
+  border-color: var(--gold-bright);
+  box-shadow: 0 0 6px rgba(240, 192, 48, 0.7);
+  width: 8px;
+  height: 8px;
+}
+
+/* ─── CHAT EXTRAS ─────────────────────────────── */
+.typing-dots {
+  display: flex;
+  gap: 4px;
+  padding: 4px 0;
+}
+.typing-dots span {
+  width: 6px;
+  height: 6px;
+  background: var(--parchment-muted);
+  border-radius: 50%;
+  animation: typing-bounce 1.2s infinite;
+}
+.typing-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+.typing-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+@keyframes typing-bounce {
+  0%,
+  80%,
+  100% {
+    transform: translateY(0);
+    opacity: 0.4;
+  }
+  40% {
+    transform: translateY(-6px);
+    opacity: 1;
+  }
+}
+
+.error-banner {
+  background: rgba(192, 57, 43, 0.15);
+  border: 1px solid rgba(192, 57, 43, 0.4);
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  color: var(--crimson);
+  font-family: "Cormorant Garamond", serif;
+}
+
+/* ─── ITEM CARD TOOLTIP ───────────────────────── */
+.item-card {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 4px);
+  z-index: 100;
+  width: 300px;
+  background: linear-gradient(160deg, #1a0e04 0%, #0e0802 100%);
+  border: 1px solid var(--border-gold-bright);
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.8),
+    0 0 20px rgba(212, 160, 23, 0.1);
+  animation: card-appear 0.15s ease-out;
+}
+
+@keyframes card-appear {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.item-card-rarity-bar {
+  height: 3px;
+  width: 100%;
+}
+
+.item-card-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid var(--border-gold);
+}
+
+.item-card-icon {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(212, 160, 23, 0.08);
+  border: 1px solid var(--border-gold);
+  border-radius: 4px;
+  color: var(--parchment-muted);
+  flex-shrink: 0;
+}
+
+.item-card-name {
+  font-family: "Cinzel", serif;
+  font-size: 0.85rem;
+  color: var(--parchment);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.item-card-type {
+  font-family: "Cormorant Garamond", serif;
+  font-size: 0.75rem;
+  color: var(--parchment-muted);
+}
+
+.item-card-rarity {
+  font-family: "Cinzel", serif;
+  font-size: 0.65rem;
+  letter-spacing: 0.05em;
+}
+
+.item-equipped-badge {
+  margin-left: auto;
+  font-family: "Cinzel", serif;
+  font-size: 0.55rem;
+  color: var(--gold);
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+
+.item-card-block {
+  padding: 8px 12px;
+  border-bottom: 1px solid rgba(212, 160, 23, 0.1);
+}
+
+.item-card-block-title {
+  font-family: "Cinzel", serif;
+  font-size: 0.6rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 6px;
+}
+
+.item-param-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 4px;
+}
+
+.item-param {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.item-param-label {
+  font-family: "Cinzel", serif;
+  font-size: 0.55rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--parchment-muted);
+  opacity: 0.7;
+}
+
+.item-param-value {
+  font-family: "Cormorant Garamond", serif;
+  font-size: 0.9rem;
+  color: var(--parchment);
+  font-weight: 500;
+}
+
+.item-mechanic-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+  font-family: "Cormorant Garamond", serif;
+}
+
+.item-card-actions {
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px;
+}
+
+.item-action-btn {
+  flex: 1;
+  font-family: "Cinzel", serif;
+  font-size: 0.55rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 5px 4px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s;
+  border: 1px solid;
+}
+
+.item-action-equip {
+  background: rgba(212, 160, 23, 0.15);
+  border-color: var(--border-gold);
+  color: var(--gold);
+}
+.item-action-equip:hover {
+  background: rgba(212, 160, 23, 0.3);
+}
+
+.item-action-unequip {
+  background: rgba(192, 160, 80, 0.1);
+  border-color: rgba(212, 160, 23, 0.3);
+  color: var(--parchment-muted);
+}
+
+.item-action-use {
+  background: rgba(46, 204, 113, 0.1);
+  border-color: rgba(46, 204, 113, 0.4);
+  color: var(--emerald);
+}
+.item-action-use:hover {
+  background: rgba(46, 204, 113, 0.2);
+}
+
+.item-action-drop {
+  background: rgba(192, 57, 43, 0.1);
+  border-color: rgba(192, 57, 43, 0.4);
+  color: var(--crimson);
+}
+.item-action-drop:hover {
+  background: rgba(192, 57, 43, 0.2);
+}
+
+/* ─── SKILL CARD TOOLTIP ─────────────────────── */
+.skill-card {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 4px);
+  z-index: 100;
+  width: 280px;
+  background: linear-gradient(160deg, #1a0e04 0%, #0e0802 100%);
+  border: 1px solid var(--border-gold-bright);
+  border-radius: 6px;
+  overflow: hidden;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.8),
+    0 0 20px rgba(212, 160, 23, 0.1);
+  animation: card-appear 0.15s ease-out;
+}
+
+.skill-card-header {
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid var(--border-gold);
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.skill-card-name {
+  font-family: "Cinzel", serif;
+  font-size: 0.9rem;
+  color: var(--parchment);
+  font-weight: 600;
+}
+
+.skill-card-attr {
+  font-family: "Cormorant Garamond", serif;
+  font-size: 0.8rem;
+  color: var(--gold);
+  italic: true;
+}
+
+.skill-card-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  border-bottom: 1px solid rgba(212, 160, 23, 0.1);
+}
+
+.skill-stat-block {
+  padding: 6px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.skill-stat-label {
+  font-family: "Cinzel", serif;
+  font-size: 0.55rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--parchment-muted);
+  opacity: 0.7;
+}
+
+.skill-stat-value {
+  font-family: "Cormorant Garamond", serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.skill-card-desc {
+  padding: 8px 12px;
+  font-family: "Cormorant Garamond", serif;
+  font-size: 0.85rem;
+  color: var(--parchment-muted);
+  line-height: 1.4;
+  border-bottom: 1px solid rgba(212, 160, 23, 0.1);
+  font-style: italic;
+}
+
+.skill-roll-section {
+  padding: 8px 12px;
+}
+
+.skill-roll-header {
+  font-family: "Cinzel", serif;
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--gold);
+  margin-bottom: 6px;
+}
+
+.skill-adv-btn {
+  flex: 1;
+  font-family: "Cinzel", serif;
+  font-size: 0.55rem;
+  letter-spacing: 0.05em;
+  padding: 4px 2px;
+  border: 1px solid var(--border-gold);
+  border-radius: 2px;
+  color: var(--parchment-muted);
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.skill-adv-btn:hover {
+  background: rgba(212, 160, 23, 0.1);
+  color: var(--parchment);
+}
+.skill-adv-btn-active {
+  background: rgba(212, 160, 23, 0.2) !important;
+  color: var(--gold) !important;
+  border-color: var(--gold) !important;
+}
+
+.skill-roll-btn {
+  width: 100%;
+  font-family: "Cinzel", serif;
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  padding: 7px;
+  background: linear-gradient(
+    135deg,
+    rgba(212, 160, 23, 0.2),
+    rgba(212, 160, 23, 0.1)
+  );
+  border: 1px solid var(--border-gold-bright);
+  border-radius: 3px;
+  color: var(--gold);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.skill-roll-btn:hover {
+  background: linear-gradient(
+    135deg,
+    rgba(212, 160, 23, 0.35),
+    rgba(212, 160, 23, 0.2)
+  );
+  box-shadow: 0 0 10px rgba(212, 160, 23, 0.2);
+}
+
+.skill-roll-result {
+  margin-top: 8px;
+  text-align: center;
+  padding: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--border-gold);
+  border-radius: 4px;
+}
+.roll-nat20 {
+  border-color: var(--gold) !important;
+  background: rgba(212, 160, 23, 0.1) !important;
+}
+.roll-nat1 {
+  border-color: rgba(192, 57, 43, 0.6) !important;
+  background: rgba(192, 57, 43, 0.08) !important;
+}
+
+.roll-total {
+  display: block;
+  font-family: "Cinzel", serif;
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--gold-bright);
+  text-shadow: 0 0 12px rgba(212, 160, 23, 0.6);
+  line-height: 1;
+}
+.roll-detail {
+  display: block;
+  font-family: "Cormorant Garamond", serif;
+  font-size: 0.75rem;
+  color: var(--parchment-muted);
+  margin-top: 3px;
+}
+.roll-crit-label {
+  display: block;
+  font-family: "Cinzel", serif;
+  font-size: 0.6rem;
+  color: var(--gold);
+  letter-spacing: 0.1em;
+  animation: pulse 1s infinite;
+}
+.roll-fumble-label {
+  display: block;
+  font-family: "Cinzel", serif;
+  font-size: 0.6rem;
+  color: var(--crimson);
+  letter-spacing: 0.1em;
+}
+
 /* ─── KEYFRAMES ──────────────────────────────── */
 @keyframes accordion-down {
   from {
