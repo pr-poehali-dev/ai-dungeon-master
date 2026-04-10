@@ -174,9 +174,7 @@ def handler(event: dict, context) -> dict:
         return {
             "statusCode": 500,
             "headers": {**cors_headers, "Content-Type": "application/json"},
-            "body": json.dumps({
-                "error": f"API ключ не найден. OPENROUTER_API_KEY={'есть' if or_key else 'пусто'}, OPENAI_API_KEY={'есть' if oa_key else 'пусто'}"
-            }),
+            "body": {"error": f"API ключ не найден. OPENROUTER_API_KEY={'есть' if or_key else 'пусто'}, OPENAI_API_KEY={'есть' if oa_key else 'пусто'}"},
         }
 
     system_prompt = build_context(body)
@@ -199,13 +197,11 @@ def handler(event: dict, context) -> dict:
         return {
             "statusCode": 200,
             "headers": {**cors_headers, "Content-Type": "application/json"},
-            "body": json.dumps({
-                "error": f"Ошибка API ({type(e).__name__}): {str(e)}"
-            }, ensure_ascii=False),
+            "body": {"error": f"Ошибка API ({type(e).__name__}): {str(e)}"},
         }
 
     return {
         "statusCode": 200,
         "headers": {**cors_headers, "Content-Type": "application/json"},
-        "body": json.dumps({"reply": reply, "model": model}, ensure_ascii=False),
+        "body": {"reply": reply, "model": model},
     }
