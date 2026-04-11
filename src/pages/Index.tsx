@@ -699,13 +699,23 @@ function SettingsTab({ state, setState }: { state: GameState; setState: (s: Game
       <div>
         <h3 className="section-title">Модель</h3>
         <select value={s.model} onChange={(e) => update({ model: e.target.value })} className="fantasy-select w-full">
-          <option value="gpt-4o">GPT-4o</option>
-          <option value="gpt-4-turbo">GPT-4 Turbo</option>
-          <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-          <option value="claude-opus-4">Claude Opus 4</option>
-          <option value="claude-sonnet-4">Claude Sonnet 4.5</option>
-          <option value="claude-haiku-3">Claude Haiku 3.5</option>
+          <optgroup label="── Бесплатные модели ──">
+            <option value="gemini-flash">✦ Gemini 2.0 Flash (бесплатно)</option>
+            <option value="llama-free">✦ Llama 3.3 70B (бесплатно)</option>
+            <option value="deepseek-free">✦ DeepSeek V3 (бесплатно)</option>
+          </optgroup>
+          <optgroup label="── Платные модели ──">
+            <option value="gpt-4o">GPT-4o</option>
+            <option value="gpt-4-turbo">GPT-4 Turbo</option>
+            <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+            <option value="claude-opus-4">Claude Opus 4</option>
+            <option value="claude-sonnet-4">Claude Sonnet 4.5</option>
+            <option value="claude-haiku-3">Claude Haiku 3.5</option>
+          </optgroup>
         </select>
+        {["gemini-flash", "llama-free", "deepseek-free"].includes(s.model) && (
+          <p className="text-xs text-emerald-400/80 mt-1 italic">Бесплатная модель — без лимитов по токенам</p>
+        )}
       </div>
 
       <div>

@@ -262,7 +262,7 @@ const DEFAULT_STATE: GameState = {
   ],
   settings: {
     provider: "openai",
-    model: "gpt-4o",
+    model: "gemini-flash",
     temperature: 0.8,
     apiKey: "",
     narrativeStyle: "Эпический",
