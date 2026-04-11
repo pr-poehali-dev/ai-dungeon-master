@@ -182,6 +182,16 @@ def handler(event: dict, context) -> dict:
 
     # Если ключ OpenRouter (sk-or-v1-...) — используем их прокси
     # Если обычный ключ OpenAI (sk-...) — идём напрямую в OpenAI
+    # Цепочка бесплатных моделей для автоматического fallback
+    FREE_FALLBACK_CHAIN = [
+        "google/gemini-flash-1.5:free",
+        "deepseek/deepseek-r1-0528:free",
+        "deepseek/deepseek-chat-v3-0324:free",
+        "meta-llama/llama-3.3-70b-instruct:free",
+        "nousresearch/hermes-3-llama-3.1-405b:free",
+        "qwen/qwen3-14b:free",
+    ]
+
     if or_key and or_key.startswith("sk-or"):
         base_url = "https://openrouter.ai/api/v1"
         model_map = {
@@ -193,14 +203,15 @@ def handler(event: dict, context) -> dict:
             "claude-haiku-3": "anthropic/claude-haiku-3-5",
             "gemini-flash": "google/gemini-flash-1.5:free",
             "gemini-flash-8b": "google/gemini-flash-1.5-8b:free",
-            "llama-free": "nousresearch/hermes-3-llama-3.1-405b:free",
+            "llama-free": "meta-llama/llama-3.3-70b-instruct:free",
             "deepseek-free": "deepseek/deepseek-r1-0528:free",
         }
         mapped_model = model_map.get(model, f"openai/{model}")
+        is_free = mapped_model.endswith(":free")
     else:
-        # Прямой OpenAI
         base_url = None
         mapped_model = model
+        is_free = False
 
     system_prompt = build_context(body)
 
@@ -209,20 +220,40 @@ def handler(event: dict, context) -> dict:
         role = "assistant" if msg.get("role") == "master" else "user"
         openai_messages.append({"role": role, "content": msg.get("text", "")})
 
-    try:
-        client = OpenAI(api_key=api_key, **( {"base_url": base_url} if base_url else {}))
-        response = client.chat.completions.create(
-            model=mapped_model,
-            messages=openai_messages,
-            max_tokens=1000,
-            temperature=temperature,
-        )
-        reply = response.choices[0].message.content
-    except Exception as e:
+    # Для бесплатных моделей — пробуем всю цепочку fallback
+    models_to_try = []
+    if is_free:
+        models_to_try = [mapped_model] + [m for m in FREE_FALLBACK_CHAIN if m != mapped_model]
+    else:
+        models_to_try = [mapped_model]
+
+    client = OpenAI(api_key=api_key, **( {"base_url": base_url} if base_url else {}))
+    reply = None
+    last_error = None
+
+    for attempt_model in models_to_try:
+        try:
+            response = client.chat.completions.create(
+                model=attempt_model,
+                messages=openai_messages,
+                max_tokens=1000,
+                temperature=temperature,
+            )
+            reply = response.choices[0].message.content
+            break
+        except Exception as e:
+            last_error = e
+            err_str = str(e)
+            # Продолжаем только при 429 или 404 — при других ошибках останавливаемся
+            if "429" not in err_str and "404" not in err_str and "not a valid model" not in err_str:
+                break
+            continue
+
+    if reply is None:
         return {
             "statusCode": 200,
             "headers": {**cors_headers, "Content-Type": "application/json"},
-            "body": {"error": f"Ошибка API ({type(e).__name__}): {str(e)}"},
+            "body": {"error": f"Ошибка API ({type(last_error).__name__}): {str(last_error)}"},
         }
 
     return {
