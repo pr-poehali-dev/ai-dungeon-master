@@ -191,10 +191,10 @@ def handler(event: dict, context) -> dict:
             "claude-opus-4": "anthropic/claude-opus-4",
             "claude-sonnet-4": "anthropic/claude-sonnet-4-5",
             "claude-haiku-3": "anthropic/claude-haiku-3-5",
-            "gemini-flash": "google/gemini-2.5-flash-preview:free",
-            "gemini-flash-lite": "google/gemini-2.0-flash-lite-001",
-            "llama-free": "meta-llama/llama-3.3-70b-instruct:free",
-            "deepseek-free": "deepseek/deepseek-chat-v3-0324:free",
+            "gemini-flash": "google/gemini-flash-1.5:free",
+            "gemini-flash-8b": "google/gemini-flash-1.5-8b:free",
+            "llama-free": "nousresearch/hermes-3-llama-3.1-405b:free",
+            "deepseek-free": "deepseek/deepseek-r1-0528:free",
         }
         mapped_model = model_map.get(model, f"openai/{model}")
     else:

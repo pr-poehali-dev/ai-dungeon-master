@@ -700,9 +700,10 @@ function SettingsTab({ state, setState }: { state: GameState; setState: (s: Game
         <h3 className="section-title">Модель</h3>
         <select value={s.model} onChange={(e) => update({ model: e.target.value })} className="fantasy-select w-full">
           <optgroup label="── Бесплатные модели ──">
-            <option value="gemini-flash">✦ Gemini 2.0 Flash (бесплатно)</option>
-            <option value="llama-free">✦ Llama 3.3 70B (бесплатно)</option>
-            <option value="deepseek-free">✦ DeepSeek V3 (бесплатно)</option>
+            <option value="gemini-flash">✦ Gemini 1.5 Flash (бесплатно)</option>
+            <option value="gemini-flash-8b">✦ Gemini 1.5 Flash 8B (бесплатно)</option>
+            <option value="llama-free">✦ Hermes 3 Llama 405B (бесплатно)</option>
+            <option value="deepseek-free">✦ DeepSeek R1 (бесплатно)</option>
           </optgroup>
           <optgroup label="── Платные модели ──">
             <option value="gpt-4o">GPT-4o</option>
@@ -713,7 +714,7 @@ function SettingsTab({ state, setState }: { state: GameState; setState: (s: Game
             <option value="claude-haiku-3">Claude Haiku 3.5</option>
           </optgroup>
         </select>
-        {["gemini-flash", "llama-free", "deepseek-free"].includes(s.model) && (
+        {["gemini-flash", "gemini-flash-8b", "llama-free", "deepseek-free"].includes(s.model) && (
           <p className="text-xs text-emerald-400/80 mt-1 italic">Бесплатная модель — без лимитов по токенам</p>
         )}
       </div>
