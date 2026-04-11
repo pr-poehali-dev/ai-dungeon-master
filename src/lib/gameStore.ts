@@ -281,13 +281,16 @@ export function loadState(): GameState {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const saved = JSON.parse(raw) as GameState;
+      const PAID_MODELS = ["gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo", "claude-opus-4", "claude-sonnet-4", "claude-haiku-3"];
+      const savedModel = saved.settings?.model ?? "";
+      const migratedModel = PAID_MODELS.includes(savedModel) ? "gemini-flash" : savedModel;
       // Мержим с дефолтами на случай новых полей
       return {
         ...DEFAULT_STATE,
         ...saved,
         character: { ...DEFAULT_STATE.character, ...saved.character },
         inventory: { ...DEFAULT_STATE.inventory, ...saved.inventory },
-        settings: { ...DEFAULT_STATE.settings, ...saved.settings },
+        settings: { ...DEFAULT_STATE.settings, ...saved.settings, model: migratedModel },
       };
     }
   } catch (_e) {
