@@ -193,6 +193,22 @@ def handler(event: dict, context) -> dict:
             "body": {"reply": reply},
         }
 
+    # ── DeepSeek напрямую ───────────────────────────────────────────
+    if provider == "deepseek" and user_api_key:
+        client = OpenAI(api_key=user_api_key, base_url="https://api.deepseek.com")
+        response = client.chat.completions.create(
+            model=model,
+            messages=openai_messages,
+            max_tokens=1200,
+            temperature=temperature,
+        )
+        reply = response.choices[0].message.content
+        return {
+            "statusCode": 200,
+            "headers": {**cors_headers, "Content-Type": "application/json"},
+            "body": {"reply": reply},
+        }
+
     # ── OpenAI напрямую ─────────────────────────────────────────────
     if provider == "openai" and user_api_key:
         client = OpenAI(api_key=user_api_key)

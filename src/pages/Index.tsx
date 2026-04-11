@@ -684,16 +684,19 @@ function SettingsTab({ state, setState }: { state: GameState; setState: (s: Game
       <div>
         <h3 className="section-title">Провайдер</h3>
         <div className="grid grid-cols-2 gap-2">
-          {(["google", "openrouter", "openai", "anthropic"] as const).map((p) => (
+          {(["google", "deepseek", "openrouter", "openai", "anthropic"] as const).map((p) => (
             <button key={p}
               onClick={() => update({ provider: p })}
               className={`provider-btn ${s.provider === p ? "provider-btn-active" : ""}`}>
-              {p === "google" ? "🟢 Google AI" : p === "openrouter" ? "OpenRouter" : p === "openai" ? "OpenAI" : "Anthropic"}
+              {p === "google" ? "🟢 Google AI" : p === "deepseek" ? "🔵 DeepSeek" : p === "openrouter" ? "OpenRouter" : p === "openai" ? "OpenAI" : "Anthropic"}
             </button>
           ))}
         </div>
         {s.provider === "google" && (
-          <p className="text-xs text-emerald-400/80 mt-2">✦ Бесплатно, стабильно. Получи ключ на <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" className="underline">aistudio.google.com</a></p>
+          <p className="text-xs text-emerald-400/80 mt-2">✦ Бесплатно, стабильно. Ключ: <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" className="underline">aistudio.google.com</a></p>
+        )}
+        {s.provider === "deepseek" && (
+          <p className="text-xs text-blue-400/80 mt-2">✦ Дёшево и мощно. Ключ: <a href="https://platform.deepseek.com/api_keys" target="_blank" rel="noreferrer" className="underline">platform.deepseek.com</a></p>
         )}
         {s.provider === "openrouter" && (
           <p className="text-xs text-parchment-muted mt-2">✦ Поддерживает все модели, но бесплатные нестабильны</p>
@@ -706,7 +709,11 @@ function SettingsTab({ state, setState }: { state: GameState; setState: (s: Game
           type="password"
           value={s.apiKey}
           onChange={(e) => update({ apiKey: e.target.value })}
-          placeholder={s.provider === "google" ? "AIza..." : s.provider === "openrouter" ? "sk-or-v1-..." : "sk-..."}
+          placeholder={
+            s.provider === "google" ? "AIza..." :
+            s.provider === "deepseek" ? "sk-..." :
+            s.provider === "openrouter" ? "sk-or-v1-..." : "sk-..."
+          }
           className="fantasy-input w-full font-mono text-sm"
         />
         {s.provider === "google" && !s.apiKey && (
@@ -725,6 +732,11 @@ function SettingsTab({ state, setState }: { state: GameState; setState: (s: Game
             <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
             <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
             <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+          </select>
+        ) : s.provider === "deepseek" ? (
+          <select value={s.model} onChange={(e) => update({ model: e.target.value })} className="fantasy-select w-full">
+            <option value="deepseek-chat">DeepSeek V3 (рекомендуется)</option>
+            <option value="deepseek-reasoner">DeepSeek R1 (reasoning)</option>
           </select>
         ) : (
           <select value={s.model} onChange={(e) => update({ model: e.target.value })} className="fantasy-select w-full">

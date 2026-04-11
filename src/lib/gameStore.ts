@@ -116,7 +116,7 @@ export interface ChatMessage {
 }
 
 export interface Settings {
-  provider: "openai" | "anthropic" | "local" | "google" | "openrouter";
+  provider: "openai" | "anthropic" | "local" | "google" | "openrouter" | "deepseek";
   model: string;
   temperature: number;
   apiKey: string;
