@@ -116,7 +116,7 @@ export interface ChatMessage {
 }
 
 export interface Settings {
-  provider: "openai" | "anthropic" | "local";
+  provider: "openai" | "anthropic" | "local" | "google" | "openrouter";
   model: string;
   temperature: number;
   apiKey: string;
@@ -261,8 +261,8 @@ const DEFAULT_STATE: GameState = {
     { role: "master", text: "Проверка Проницательности (Мудрость): вы набрали 14. Незнакомец — пожилой эльф с усталыми глазами. На его руках следы от цепей, карта явно старая — пергамент пожелтел от времени. Он нервно смотрит на дверь каждую минуту.\n\nЗа соседним столиком двое людей в одинаковых серых плащах тихо переговариваются, поглядывая в его сторону.", time: "21:15" },
   ],
   settings: {
-    provider: "openai",
-    model: "gemini-flash",
+    provider: "google",
+    model: "gemini-2.0-flash",
     temperature: 0.8,
     apiKey: "",
     narrativeStyle: "Эпический",
@@ -281,16 +281,19 @@ export function loadState(): GameState {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const saved = JSON.parse(raw) as GameState;
-      const PAID_MODELS = ["gpt-4o", "gpt-4-turbo", "gpt-3.5-turbo", "claude-opus-4", "claude-sonnet-4", "claude-haiku-3"];
+      const OR_FREE_MODELS = ["gemini-flash", "gemini-flash-8b", "llama-free", "deepseek-free"];
       const savedModel = saved.settings?.model ?? "";
-      const migratedModel = PAID_MODELS.includes(savedModel) ? "gemini-flash" : savedModel;
+      const savedProvider = saved.settings?.provider ?? "";
+      // Если была бесплатная модель OpenRouter — переключаем на Google AI
+      const migratedModel = OR_FREE_MODELS.includes(savedModel) ? "gemini-2.0-flash" : savedModel;
+      const migratedProvider = OR_FREE_MODELS.includes(savedModel) ? "google" : savedProvider;
       // Мержим с дефолтами на случай новых полей
       return {
         ...DEFAULT_STATE,
         ...saved,
         character: { ...DEFAULT_STATE.character, ...saved.character },
         inventory: { ...DEFAULT_STATE.inventory, ...saved.inventory },
-        settings: { ...DEFAULT_STATE.settings, ...saved.settings, model: migratedModel },
+        settings: { ...DEFAULT_STATE.settings, ...saved.settings, model: migratedModel, provider: migratedProvider || saved.settings?.provider || DEFAULT_STATE.settings.provider },
       };
     }
   } catch (_e) {

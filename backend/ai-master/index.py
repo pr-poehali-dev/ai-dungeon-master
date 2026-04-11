@@ -156,8 +156,10 @@ def handler(event: dict, context) -> dict:
         }
 
     messages = body.get("messages", [])
-    model = body.get("model", "gpt-4o")
+    model = body.get("model", "gemini-2.0-flash")
+    provider = body.get("provider", "google")
     temperature = float(body.get("temperature", 0.8))
+    user_api_key = body.get("apiKey", "").strip()
 
     if not messages:
         return {
@@ -166,68 +168,78 @@ def handler(event: dict, context) -> dict:
             "body": {"error": "messages обязательны"},
         }
 
-    # Читаем все доступные ключи
-    or_key = os.environ.get("OPENROUTER_API_KEY", "").strip()
-    oa_key = os.environ.get("OPENAI_API_KEY", "").strip()
-
-    # Диагностика — вернём если нет ни одного ключа
-    if not or_key and not oa_key:
-        return {
-            "statusCode": 500,
-            "headers": {**cors_headers, "Content-Type": "application/json"},
-            "body": {"error": "КЛЮЧИ ПУСТЫ. Env vars with KEY/SECRET: " + str({k: (v[:4]+"...") for k, v in os.environ.items() if "KEY" in k or "SECRET" in k or "TOKEN" in k})},
-        }
-
-    api_key = or_key or oa_key
-
-    # Если ключ OpenRouter (sk-or-v1-...) — используем их прокси
-    # Если обычный ключ OpenAI (sk-...) — идём напрямую в OpenAI
-    # Цепочка бесплатных моделей для автоматического fallback
-    FREE_FALLBACK_CHAIN = [
-        "google/gemini-flash-1.5:free",
-        "deepseek/deepseek-r1-0528:free",
-        "deepseek/deepseek-chat-v3-0324:free",
-        "meta-llama/llama-3.3-70b-instruct:free",
-        "nousresearch/hermes-3-llama-3.1-405b:free",
-        "qwen/qwen3-14b:free",
-    ]
-
-    if or_key and or_key.startswith("sk-or"):
-        base_url = "https://openrouter.ai/api/v1"
-        model_map = {
-            "gpt-4o": "openai/gpt-4o",
-            "gpt-4-turbo": "openai/gpt-4-turbo",
-            "gpt-3.5-turbo": "openai/gpt-3.5-turbo",
-            "claude-opus-4": "anthropic/claude-opus-4",
-            "claude-sonnet-4": "anthropic/claude-sonnet-4-5",
-            "claude-haiku-3": "anthropic/claude-haiku-3-5",
-            "gemini-flash": "google/gemini-flash-1.5:free",
-            "gemini-flash-8b": "google/gemini-flash-1.5-8b:free",
-            "llama-free": "meta-llama/llama-3.3-70b-instruct:free",
-            "deepseek-free": "deepseek/deepseek-r1-0528:free",
-        }
-        mapped_model = model_map.get(model, f"openai/{model}")
-        is_free = mapped_model.endswith(":free")
-    else:
-        base_url = None
-        mapped_model = model
-        is_free = False
-
     system_prompt = build_context(body)
-
     openai_messages = [{"role": "system", "content": system_prompt}]
     for msg in messages:
         role = "assistant" if msg.get("role") == "master" else "user"
         openai_messages.append({"role": role, "content": msg.get("text", "")})
 
-    # Для бесплатных моделей — пробуем всю цепочку fallback
-    models_to_try = []
-    if is_free:
-        models_to_try = [mapped_model] + [m for m in FREE_FALLBACK_CHAIN if m != mapped_model]
-    else:
-        models_to_try = [mapped_model]
+    # ── Google AI напрямую ──────────────────────────────────────────
+    if provider == "google" and user_api_key:
+        client = OpenAI(
+            api_key=user_api_key,
+            base_url="https://generativelanguage.googleapis.com/v1beta/openai/"
+        )
+        response = client.chat.completions.create(
+            model=model,
+            messages=openai_messages,
+            max_tokens=1200,
+            temperature=temperature,
+        )
+        reply = response.choices[0].message.content
+        return {
+            "statusCode": 200,
+            "headers": {**cors_headers, "Content-Type": "application/json"},
+            "body": {"reply": reply},
+        }
 
-    client = OpenAI(api_key=api_key, **( {"base_url": base_url} if base_url else {}))
+    # ── OpenAI напрямую ─────────────────────────────────────────────
+    if provider == "openai" and user_api_key:
+        client = OpenAI(api_key=user_api_key)
+        response = client.chat.completions.create(
+            model=model,
+            messages=openai_messages,
+            max_tokens=1200,
+            temperature=temperature,
+        )
+        reply = response.choices[0].message.content
+        return {
+            "statusCode": 200,
+            "headers": {**cors_headers, "Content-Type": "application/json"},
+            "body": {"reply": reply},
+        }
+
+    # ── OpenRouter (системный ключ или пользовательский) ────────────
+    or_key = user_api_key if (provider == "openrouter" and user_api_key) else os.environ.get("OPENROUTER_API_KEY", "").strip()
+
+    if not or_key:
+        return {
+            "statusCode": 400,
+            "headers": {**cors_headers, "Content-Type": "application/json"},
+            "body": {"error": "Укажи API ключ в Настройках → API Ключ. Для Google AI: aistudio.google.com/apikey (бесплатно)"},
+        }
+
+    FREE_FALLBACK_CHAIN = [
+        "google/gemini-flash-1.5:free",
+        "deepseek/deepseek-r1-0528:free",
+        "deepseek/deepseek-chat-v3-0324:free",
+        "meta-llama/llama-3.3-70b-instruct:free",
+    ]
+
+    model_map = {
+        "gpt-4o": "openai/gpt-4o",
+        "gpt-3.5-turbo": "openai/gpt-3.5-turbo",
+        "claude-sonnet-4": "anthropic/claude-sonnet-4-5",
+        "claude-haiku-3": "anthropic/claude-haiku-3-5",
+        "gemini-flash": "google/gemini-flash-1.5:free",
+        "llama-free": "meta-llama/llama-3.3-70b-instruct:free",
+        "deepseek-free": "deepseek/deepseek-r1-0528:free",
+    }
+    mapped_model = model_map.get(model, model)
+    is_free = mapped_model.endswith(":free")
+    models_to_try = [mapped_model] + ([m for m in FREE_FALLBACK_CHAIN if m != mapped_model] if is_free else [])
+
+    client = OpenAI(api_key=or_key, base_url="https://openrouter.ai/api/v1")
     reply = None
     last_error = None
 
@@ -236,7 +248,7 @@ def handler(event: dict, context) -> dict:
             response = client.chat.completions.create(
                 model=attempt_model,
                 messages=openai_messages,
-                max_tokens=1000,
+                max_tokens=1200,
                 temperature=temperature,
             )
             reply = response.choices[0].message.content
@@ -244,7 +256,6 @@ def handler(event: dict, context) -> dict:
         except Exception as e:
             last_error = e
             err_str = str(e)
-            # Продолжаем только при 429 или 404 — при других ошибках останавливаемся
             if "429" not in err_str and "404" not in err_str and "not a valid model" not in err_str:
                 break
             continue

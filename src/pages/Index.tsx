@@ -78,6 +78,7 @@ function ChatTab({ state, setState }: { state: GameState; setState: (s: GameStat
           provider: state.settings.provider,
           model: state.settings.model,
           temperature: state.settings.temperature,
+          apiKey: state.settings.apiKey,
         }),
       });
 
@@ -682,40 +683,63 @@ function SettingsTab({ state, setState }: { state: GameState; setState: (s: Game
     <div className="space-y-5 overflow-y-auto scroll-fantasy" style={{ maxHeight: "calc(100vh - 220px)" }}>
       <div>
         <h3 className="section-title">Провайдер</h3>
-        <div className="grid grid-cols-3 gap-2">
-          {(["openrouter", "openai", "anthropic"] as const).map((p) => (
+        <div className="grid grid-cols-2 gap-2">
+          {(["google", "openrouter", "openai", "anthropic"] as const).map((p) => (
             <button key={p}
               onClick={() => update({ provider: p })}
               className={`provider-btn ${s.provider === p ? "provider-btn-active" : ""}`}>
-              {p === "openrouter" ? "OpenRouter" : p === "openai" ? "OpenAI" : "Anthropic"}
+              {p === "google" ? "🟢 Google AI" : p === "openrouter" ? "OpenRouter" : p === "openai" ? "OpenAI" : "Anthropic"}
             </button>
           ))}
         </div>
+        {s.provider === "google" && (
+          <p className="text-xs text-emerald-400/80 mt-2">✦ Бесплатно, стабильно. Получи ключ на <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" className="underline">aistudio.google.com</a></p>
+        )}
         {s.provider === "openrouter" && (
-          <p className="text-xs text-parchment-muted mt-2">✦ OpenRouter работает из России, поддерживает все модели OpenAI и Anthropic</p>
+          <p className="text-xs text-parchment-muted mt-2">✦ Поддерживает все модели, но бесплатные нестабильны</p>
+        )}
+      </div>
+
+      <div>
+        <h3 className="section-title">API Ключ</h3>
+        <input
+          type="password"
+          value={s.apiKey}
+          onChange={(e) => update({ apiKey: e.target.value })}
+          placeholder={s.provider === "google" ? "AIza..." : s.provider === "openrouter" ? "sk-or-v1-..." : "sk-..."}
+          className="fantasy-input w-full font-mono text-sm"
+        />
+        {s.provider === "google" && !s.apiKey && (
+          <p className="text-xs text-amber-400/80 mt-1">⚠ Без ключа — нестабильные бесплатные модели через OpenRouter</p>
+        )}
+        {s.apiKey && (
+          <p className="text-xs text-emerald-400/80 mt-1">✦ Ключ сохранён в браузере</p>
         )}
       </div>
 
       <div>
         <h3 className="section-title">Модель</h3>
-        <select value={s.model} onChange={(e) => update({ model: e.target.value })} className="fantasy-select w-full">
-          <optgroup label="── Бесплатные модели ──">
-            <option value="gemini-flash">✦ Gemini 1.5 Flash (бесплатно)</option>
-            <option value="gemini-flash-8b">✦ Gemini 1.5 Flash 8B (бесплатно)</option>
-            <option value="llama-free">✦ Hermes 3 Llama 405B (бесплатно)</option>
-            <option value="deepseek-free">✦ DeepSeek R1 (бесплатно)</option>
-          </optgroup>
-          <optgroup label="── Платные модели ──">
-            <option value="gpt-4o">GPT-4o</option>
-            <option value="gpt-4-turbo">GPT-4 Turbo</option>
-            <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-            <option value="claude-opus-4">Claude Opus 4</option>
-            <option value="claude-sonnet-4">Claude Sonnet 4.5</option>
-            <option value="claude-haiku-3">Claude Haiku 3.5</option>
-          </optgroup>
-        </select>
-        {["gemini-flash", "gemini-flash-8b", "llama-free", "deepseek-free"].includes(s.model) && (
-          <p className="text-xs text-emerald-400/80 mt-1 italic">Бесплатная модель — без лимитов по токенам</p>
+        {s.provider === "google" ? (
+          <select value={s.model} onChange={(e) => update({ model: e.target.value })} className="fantasy-select w-full">
+            <option value="gemini-2.0-flash">Gemini 2.0 Flash (рекомендуется)</option>
+            <option value="gemini-1.5-flash">Gemini 1.5 Flash</option>
+            <option value="gemini-1.5-pro">Gemini 1.5 Pro</option>
+            <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+          </select>
+        ) : (
+          <select value={s.model} onChange={(e) => update({ model: e.target.value })} className="fantasy-select w-full">
+            <optgroup label="── Бесплатные (OpenRouter) ──">
+              <option value="gemini-flash">Gemini 1.5 Flash (бесплатно)</option>
+              <option value="llama-free">Llama 3.3 70B (бесплатно)</option>
+              <option value="deepseek-free">DeepSeek R1 (бесплатно)</option>
+            </optgroup>
+            <optgroup label="── Платные ──">
+              <option value="gpt-4o">GPT-4o</option>
+              <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+              <option value="claude-sonnet-4">Claude Sonnet 4.5</option>
+              <option value="claude-haiku-3">Claude Haiku 3.5</option>
+            </optgroup>
+          </select>
         )}
       </div>
 
